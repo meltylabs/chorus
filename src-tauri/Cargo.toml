@@ -69,3 +69,6 @@ features = ["bundled"]
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "~2.2.0"
 tauri-plugin-updater = "^2.7.1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(feature, values(\"cargo-clippy\"))"] }
