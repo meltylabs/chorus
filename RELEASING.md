@@ -26,8 +26,14 @@ Once the `release` branch is pushed, GitHub Actions automatically:
 1. Creates a draft release on CrabNebula Cloud
 2. Builds the app for both Intel (`x86_64`) and Apple Silicon (`aarch64`) Macs
 3. Signs and notarizes the app with Apple
-4. Uploads the build artifacts to CrabNebula Cloud
-5. Sends a Slack notification when complete
+4. Uploads the build artifacts to CrabNebula Cloud. Only maintainers have access.
+
+Next, you need to publish the release on CrabNebula Cloud:
+
+## Publishing
+
+1. Go to the draft release on [CrabNebula Cloud](https://web.crabnebula.cloud/chorus/chorus)
+2. Click "Publish release"
 
 ## Monitoring
 
