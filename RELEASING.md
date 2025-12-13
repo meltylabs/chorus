@@ -38,5 +38,3 @@ Next, you need to publish the release on CrabNebula Cloud:
 ## Monitoring
 
 Check release status at: https://github.com/meltylabs/chorus-oss/actions
-
-Download releases at: https://web.crabnebula.cloud/chorus/chorus
