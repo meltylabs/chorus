@@ -1,6 +1,6 @@
 {
     "name": "chorus",
-    "license": "UNLICENSED",
+    "license": "MIT",
     "private": true,
     "version": "0.14.1",
     "type": "module",
