@@ -9,6 +9,8 @@ import {
     SquarePlusIcon,
     ArrowBigUpIcon,
     EllipsisIcon,
+    Pin,
+    PinOff,
 } from "lucide-react";
 import {
     Sidebar,
@@ -821,6 +823,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         mutateAsync: deleteChatMutateAsync,
         isPending: deleteChatIsPending,
     } = ChatAPI.useDeleteChat();
+    const { mutate: togglePinChat } = ChatAPI.useTogglePinChat();
     const { data: parentChat } = useQuery(
         ChatAPI.chatQueries.detail(chat.parentChatId ?? undefined),
     );
@@ -883,11 +886,24 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
     );
     const showCost = settings?.showCost ?? false;
 
+    const handleTogglePin = useCallback(
+        (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            togglePinChat({
+                chatId: chat.id,
+                pinned: !chat.pinned,
+            });
+        },
+        [chat.id, chat.pinned, togglePinChat],
+    );
+
     return (
         <ChatListItemView
             chatId={chat.id}
             chatTitle={chat.title || ""}
             isNewChat={chat.isNewChat}
+            isPinned={chat.pinned}
             parentChatId={parentChat?.id ?? null}
             parentChatTitle={parentChat?.title || null}
             isActive={isActive}
@@ -895,6 +911,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             onStartEdit={handleStartEdit}
             onStopEdit={handleStopEdit}
             onSubmitEdit={handleSubmitEdit}
+            onTogglePin={handleTogglePin}
             onDelete={handleOpenDeleteDialog}
             onConfirmDelete={handleConfirmDelete}
             deleteIsPending={deleteChatIsPending}
@@ -910,6 +927,7 @@ type ChatListItemViewProps = {
     chatId: string;
     chatTitle: string;
     isNewChat: boolean;
+    isPinned: boolean;
     parentChatId: string | null;
     parentChatTitle: string | null;
     isActive: boolean;
@@ -917,6 +935,7 @@ type ChatListItemViewProps = {
     onStartEdit: () => void;
     onStopEdit: () => void;
     onSubmitEdit: (newTitle: string) => Promise<void>;
+    onTogglePin: (e: React.MouseEvent) => void;
     onDelete: () => void;
     onConfirmDelete: () => void;
     deleteIsPending: boolean;
@@ -931,6 +950,7 @@ const ChatListItemView = React.memo(
         chatId,
         chatTitle,
         isNewChat,
+        isPinned,
         parentChatId,
         parentChatTitle,
         isActive,
@@ -938,6 +958,7 @@ const ChatListItemView = React.memo(
         onStartEdit,
         onStopEdit,
         onSubmitEdit,
+        onTogglePin,
         onDelete,
         onConfirmDelete,
         deleteIsPending,
@@ -1021,6 +1042,20 @@ const ChatListItemView = React.memo(
 
                         {/* chat actions */}
                         <div className="flex items-center gap-2 absolute right-3 z-10">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div onClick={onTogglePin}>
+                                        {isPinned ? (
+                                            <PinOff className="h-[13px] w-[13px] opacity-100 transition-opacity text-muted-foreground hover:text-foreground" />
+                                        ) : (
+                                            <Pin className="h-[13px] w-[13px] opacity-0 group-hover/chat-button:opacity-100 transition-opacity text-muted-foreground hover:text-foreground" />
+                                        )}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    {isPinned ? "Unpin chat" : "Pin chat"}
+                                </TooltipContent>
+                            </Tooltip>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <PencilOptimized
