@@ -140,9 +140,13 @@ export function useCacheUpdateChat() {
                     updateFn(chat);
                     // NOTE: We don't always need to sort, if this becomes expensive we could gate
                     // this behind a flag
-                    draft.sort((a, b) =>
-                        b.updatedAt.localeCompare(a.updatedAt),
-                    );
+                    draft.sort((a, b) => {
+                        // Sort pinned chats first, then by updatedAt
+                        if (a.pinned !== b.pinned) {
+                            return b.pinned ? 1 : -1;
+                        }
+                        return b.updatedAt.localeCompare(a.updatedAt);
+                    });
                 }
             }),
         );
