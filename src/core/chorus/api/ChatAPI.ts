@@ -36,8 +36,7 @@ export type Chat = {
     projectContextSummaryIsStale: boolean;
     replyToId: string | null;
     gcPrototype: boolean;
-
-    pinned: boolean; // deprecated
+    pinned: boolean;
 };
 
 type ChatDBRow = {
@@ -98,7 +97,7 @@ export async function fetchChats(): Promise<Chat[]> {
             project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat
             FROM chats
             WHERE reply_to_id IS NULL
-            ORDER BY updated_at DESC`,
+            ORDER BY pinned DESC, updated_at DESC`,
         )
         .then((rows) => rows.map(readChat));
 }
@@ -388,6 +387,28 @@ export function useRenameChat() {
             await queryClient.invalidateQueries(
                 chatQueries.detail(variables.chatId),
             );
+        },
+    });
+}
+
+export function useTogglePinChat() {
+    const queryClient = useQueryClient();
+    const cacheUpdateChat = useCacheUpdateChat();
+
+    return useMutation({
+        mutationKey: ["togglePinChat"] as const,
+        mutationFn: async ({ chatId, pinned }: { chatId: string; pinned: boolean }) => {
+            await db.execute("UPDATE chats SET pinned = $1 WHERE id = $2", [
+                pinned ? 1 : 0,
+                chatId,
+            ]);
+            return { chatId, pinned };
+        },
+        onSuccess: async (_data, variables) => {
+            cacheUpdateChat(variables.chatId, (chat) => {
+                chat.pinned = variables.pinned;
+            });
+            await queryClient.invalidateQueries(chatQueries.list());
         },
     });
 }
