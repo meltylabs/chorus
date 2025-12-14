@@ -11,6 +11,7 @@ import {
     EllipsisIcon,
     Pin,
     PinOff,
+    Download,
 } from "lucide-react";
 import {
     Sidebar,
@@ -56,8 +57,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "./ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import * as ExportAPI from "@core/chorus/api/ExportAPI";
 import RetroSpinner from "./ui/retro-spinner";
 import FeedbackButton from "./FeedbackButton";
 import { SpeakerLoudIcon } from "@radix-ui/react-icons";
@@ -886,6 +894,36 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         [chat.id, chat.pinned, togglePinChat],
     );
 
+    const handleExportJSON = useCallback(
+        async (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                await ExportAPI.exportChatAsJSON(chat.id);
+                toast.success("Chat exported as JSON");
+            } catch (error) {
+                toast.error("Failed to export chat");
+                console.error(error);
+            }
+        },
+        [chat.id],
+    );
+
+    const handleExportMarkdown = useCallback(
+        async (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                await ExportAPI.exportChatAsMarkdown(chat.id);
+                toast.success("Chat exported as Markdown");
+            } catch (error) {
+                toast.error("Failed to export chat");
+                console.error(error);
+            }
+        },
+        [chat.id],
+    );
+
     return (
         <ChatListItemView
             chatId={chat.id}
@@ -900,6 +938,8 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             onStopEdit={handleStopEdit}
             onSubmitEdit={handleSubmitEdit}
             onTogglePin={handleTogglePin}
+            onExportJSON={handleExportJSON}
+            onExportMarkdown={handleExportMarkdown}
             onDelete={handleOpenDeleteDialog}
             onConfirmDelete={handleConfirmDelete}
             deleteIsPending={deleteChatIsPending}
@@ -922,6 +962,8 @@ type ChatListItemViewProps = {
     onStopEdit: () => void;
     onSubmitEdit: (newTitle: string) => Promise<void>;
     onTogglePin: (e: React.MouseEvent) => void;
+    onExportJSON: (e: React.MouseEvent) => void;
+    onExportMarkdown: (e: React.MouseEvent) => void;
     onDelete: () => void;
     onConfirmDelete: () => void;
     deleteIsPending: boolean;
@@ -943,6 +985,8 @@ const ChatListItemView = React.memo(
         onStopEdit,
         onSubmitEdit,
         onTogglePin,
+        onExportJSON,
+        onExportMarkdown,
         onDelete,
         onConfirmDelete,
         deleteIsPending,
@@ -1031,6 +1075,26 @@ const ChatListItemView = React.memo(
                                     {isPinned ? "Unpin chat" : "Pin chat"}
                                 </TooltipContent>
                             </Tooltip>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <div
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                    >
+                                        <Download className="h-[13px] w-[13px] opacity-0 group-hover/chat-button:opacity-100 transition-opacity text-muted-foreground hover:text-foreground cursor-pointer" />
+                                    </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onClick={onExportJSON}>
+                                        Export as JSON
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={onExportMarkdown}>
+                                        Export as Markdown
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <PencilOptimized
