@@ -112,7 +112,7 @@
         "memfs": "^4.17.0",
         "mime-types": "^2.1.35",
         "minimatch": "^10.0.1",
-        "openai": "^4.96.0",
+        "openai": "^6.10.0",
         "pdfjs-dist": "^5.3.31",
         "posthog-js": "^1.236.6",
         "react": "^18.3.1",
