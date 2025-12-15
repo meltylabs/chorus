@@ -2918,6 +2918,7 @@ export function useGenerateChatTitle() {
                 return { skipped: true };
             }
 
+            // TODO: Consider moving this API call to the tauri backend.
             const fullResponse = await simpleLLM(
                 `Based on this first message, write a 1-5 word title for the conversation. Try to put the most important words first. Format your response as <title>YOUR TITLE HERE</title>.
 If there's no information in the message, just return "Untitled Chat".
@@ -2925,7 +2926,6 @@ If there's no information in the message, just return "Untitled Chat".
 ${userMessageText}
 </message>`,
                 {
-                    model: "claude-3-5-sonnet-latest",
                     maxTokens: 100,
                 },
             );
