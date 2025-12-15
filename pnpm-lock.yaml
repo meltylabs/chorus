@@ -132,8 +132,8 @@ dependencies:
     specifier: ~2.4.3
     version: 2.4.4
   '@tauri-apps/plugin-notification':
-    specifier: ~2.0.0
-    version: 2.0.0
+    specifier: ~2.2.1
+    version: 2.2.3
   '@tauri-apps/plugin-opener':
     specifier: ~2.2.6
     version: 2.2.7
@@ -7417,8 +7417,8 @@ packages:
       '@tauri-apps/api': 2.5.0
     dev: false
 
-  /@tauri-apps/plugin-notification@2.0.0:
-    resolution: {integrity: sha512-6qEDYJS7mgXZWLXA0EFL+DVCJh8sJlzSoyw6B50pxhLPVFjc5Vr5DVzl5W3mUHaYhod5wsC984eQnlCCGqxYDA==}
+  /@tauri-apps/plugin-notification@2.2.3:
+    resolution: {integrity: sha512-IlMdSVFsrKg0eIHBloFFosnWbbz6JdwBywfZrYZnE1+acgXvNS3T1YB5w9R6UXw+KKQ94ODBu7JF7a1YUiAK6A==}
     dependencies:
       '@tauri-apps/api': 2.5.0
     dev: false
