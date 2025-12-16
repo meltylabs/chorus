@@ -47,6 +47,7 @@ import {
 import { Metrics } from "./Metrics";
 import * as Reviews from "@core/chorus/reviews";
 import * as Brainstorms from "@core/chorus/brainstorm";
+import { formatCost } from "@core/chorus/api/CostAPI";
 import Markdown from "react-markdown";
 import { Skeleton } from "./ui/skeleton";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
@@ -552,6 +553,21 @@ function AIMessageView({
                             isStreaming={message.state === "streaming"}
                         />
                     )}
+                    {!isQuickChatWindow &&
+                        message.costUsd !== undefined &&
+                        message.state !== "streaming" && (
+                            <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground font-mono uppercase tabular-nums">
+                                Cost: {formatCost(message.costUsd)}
+                                {message.promptTokens &&
+                                    message.completionTokens && (
+                                        <span className="ml-2">
+                                            ({message.promptTokens.toLocaleString()} →{" "}
+                                            {message.completionTokens.toLocaleString()}{" "}
+                                            tokens)
+                                        </span>
+                                    )}
+                            </div>
+                        )}
                 </div>
             </div>
 
