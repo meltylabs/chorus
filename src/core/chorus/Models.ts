@@ -200,6 +200,10 @@ export type ModelConfig = {
     isDefault: boolean;
     budgetTokens?: number; // optional token budget for thinking mode
     reasoningEffort?: "low" | "medium" | "high";
+
+    // pricing (from models table)
+    promptPricePerToken?: number;
+    completionPricePerToken?: number;
 };
 
 export type StreamResponseParams = {
