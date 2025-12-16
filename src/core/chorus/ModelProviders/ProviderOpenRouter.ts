@@ -40,8 +40,9 @@ export class ProviderOpenRouter implements IProvider {
     }: StreamResponseParams): Promise<ModelDisabled | void> {
         const modelName = modelConfig.modelId.split("::")[1];
         // Use the model's supportedAttachmentTypes from the database instead of hardcoded list
+        // Add null safety check in case supportedAttachmentTypes is undefined or null
         const supportsImages =
-            modelConfig.supportedAttachmentTypes.includes("image");
+            modelConfig.supportedAttachmentTypes?.includes("image") ?? false;
 
         const { canProceed, reason } = canProceedWithProvider(
             "openrouter",

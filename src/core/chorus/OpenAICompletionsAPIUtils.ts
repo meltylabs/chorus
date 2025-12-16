@@ -144,6 +144,9 @@ async function convertMessage(
         }
 
         if (imageContents.length > 0) {
+            // Text content is placed before images to comply with OpenRouter's documentation:
+            // "Due to how the content is parsed, we recommend sending the text prompt first, then the images."
+            // See: https://openrouter.ai/docs/guides/overview/multimodal/images
             return [
                 {
                     role: message.role,

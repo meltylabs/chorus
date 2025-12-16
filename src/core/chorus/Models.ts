@@ -331,32 +331,6 @@ export async function saveModelAndDefaultConfig(
     );
 }
 
-// List of OpenRouter models that support image attachments
-export const IMAGE_SUPPORTED_OPENROUTER_MODELS: string[] = [
-    "meta-llama/llama-4-scout",
-    "meta-llama/llama-4-maverick",
-    "deepseek/deepseek-r1",
-    "deepseek/deepseek-r1-0528",
-    "deepseek/deepseek-chat",
-    "google/gemini-2.0-flash-001",
-    "anthropic/claude-3-sonnet",
-    "anthropic/claude-3.5-sonnet",
-    "anthropic/claude-3.5-haiku",
-    "anthropic/claude-opus-4.5",
-    "google/gemini-flash-1.5",
-    "google/gemini-pro",
-    "google/gemini-pro-vision",
-    "meta-llama/llama-3.3-70b-instruct",
-    "openai/chatgpt-4o-latest",
-    "openai/gpt-3.5-turbo",
-    "openai/gpt-4",
-    "openai/gpt-4o",
-    "openai/gpt-4o-mini",
-    "openai/o1",
-    "openai/o1-preview",
-    "x-ai/grok-4",
-];
-
 /**
  * Downloads models from external sources to refresh the database.
  */
@@ -395,9 +369,10 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
     await Promise.all(
         openRouterModels.map((model) => {
             // Check if the model supports images based on API metadata
+            // Use Array.isArray check to ensure input_modalities is an array before calling includes
             const supportsImages =
-                model.architecture?.input_modalities?.includes("image") ??
-                false;
+                Array.isArray(model.architecture?.input_modalities) &&
+                model.architecture.input_modalities.includes("image");
 
             return saveModelAndDefaultConfig(
                 db,

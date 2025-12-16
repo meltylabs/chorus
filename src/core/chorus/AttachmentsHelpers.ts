@@ -255,6 +255,9 @@ export async function convertPdfToPng(filePath: string): Promise<string[]> {
         canvas.width = viewport.width;
 
         // Render PDF page to canvas
+        // Note: pdfjs-dist v5.4+ requires the 'canvas' parameter in RenderParameters
+        // In older versions, only canvasContext was required, but the new API
+        // makes 'canvas' a required property for improved type safety
         await page.render({
             canvas,
             canvasContext: context,
