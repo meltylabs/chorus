@@ -56,6 +56,7 @@ import {
 } from "./ui/dialog";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import { formatCost } from "@core/chorus/api/CostAPI";
 import RetroSpinner from "./ui/retro-spinner";
 import FeedbackButton from "./FeedbackButton";
 import { SpeakerLoudIcon } from "@radix-ui/react-icons";
@@ -347,6 +348,12 @@ function Project({ projectId }: { projectId: string }) {
                             onClick={handleProjectClick}
                         >
                             {projectDisplayName(project?.name)}
+                            {project?.totalCostUsd !== undefined &&
+                                project.totalCostUsd > 0 && (
+                                    <span className="ml-2 text-xs text-muted-foreground font-normal">
+                                        ({formatCost(project.totalCostUsd)})
+                                    </span>
+                                )}
                         </h2>
                     </span>
 
@@ -888,6 +895,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             deleteIsPending={deleteChatIsPending}
             navigate={navigate}
             deleteConfirmButtonRef={deleteConfirmButtonRef}
+            chatCost={chat.totalCostUsd}
         />
     );
 }
@@ -908,6 +916,7 @@ type ChatListItemViewProps = {
     deleteIsPending: boolean;
     navigate: MutableRefObject<NavigateFunction>;
     deleteConfirmButtonRef: MutableRefObject<HTMLButtonElement | null>;
+    chatCost?: number;
 };
 
 const ChatListItemView = React.memo(
@@ -927,6 +936,7 @@ const ChatListItemView = React.memo(
         deleteIsPending,
         navigate,
         deleteConfirmButtonRef,
+        chatCost,
     }: ChatListItemViewProps) => {
         return (
             <div
@@ -989,6 +999,11 @@ const ChatListItemView = React.memo(
                                 onStopEdit={onStopEdit}
                             />
                             <ChatLoadingIndicator chatId={chatId} />
+                            {chatCost !== undefined && chatCost > 0 && (
+                                <span className="ml-auto pl-2 text-xs text-muted-foreground flex-shrink-0">
+                                    {formatCost(chatCost)}
+                                </span>
+                            )}
                         </div>
 
                         {/* Gradient overlay that appears when hovering */}
