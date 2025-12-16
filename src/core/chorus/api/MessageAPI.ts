@@ -112,6 +112,10 @@ export interface MessageDBRow {
     level: number | null;
     reply_chat_id: string | null;
     branched_from_id: string | null;
+    prompt_tokens: number | null;
+    completion_tokens: number | null;
+    total_tokens: number | null;
+    cost_usd: number | null;
 }
 
 export interface MessagePartDBRow {
@@ -146,6 +150,10 @@ export function readMessage(
         parts: messagePartsRows.map(readMessagePart),
         replyChatId: row.reply_chat_id ?? undefined,
         branchedFromId: row.branched_from_id ?? undefined,
+        promptTokens: row.prompt_tokens ?? undefined,
+        completionTokens: row.completion_tokens ?? undefined,
+        totalTokens: row.total_tokens ?? undefined,
+        costUsd: row.cost_usd ?? undefined,
     };
 }
 
