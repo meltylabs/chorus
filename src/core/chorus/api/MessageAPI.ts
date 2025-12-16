@@ -16,7 +16,7 @@ import {
 } from "@core/chorus/ChatState";
 import * as Reviews from "../reviews";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LLMMessage, ModelConfig } from "../Models";
+import { LLMMessage, ModelConfig, UsageData } from "../Models";
 import * as Models from "../Models";
 import { UpdateQueue } from "../UpdateQueue";
 import posthog from "posthog-js";
@@ -33,12 +33,18 @@ import { useAppContext } from "@ui/hooks/useAppContext";
 import { db } from "../DB";
 import { draftKeys } from "./DraftAPI";
 import { updateSavedModelConfigChat } from "./ModelConfigChatAPI";
-import { chatIsLoadingQueries, chatQueries } from "./ChatAPI";
+import { chatIsLoadingQueries, chatQueries, fetchChat } from "./ChatAPI";
 import {
     appMetadataKeys,
     getApiKeys,
     getCustomBaseUrl,
 } from "./AppMetadataAPI";
+import {
+    calculateCost,
+    formatCost,
+    updateChatCost,
+    updateProjectCost,
+} from "./CostAPI";
 import {
     projectQueries,
     useGetProjectContextLLMMessage,
@@ -1101,8 +1107,9 @@ export function useStreamMessagePart() {
             const onComplete = async (
                 finalText: string | undefined,
                 toolCalls?: UserToolCall[],
+                usageData?: UsageData,
             ) => {
-                console.log("onComplete", finalText, toolCalls);
+                console.log("onComplete", finalText, toolCalls, usageData);
                 // if the provider didn't give us final text, then we use the
                 // one we've been accumulating
                 finalText = finalText ?? partialResponse;
@@ -1114,6 +1121,29 @@ export function useStreamMessagePart() {
 
                 if (hasToolCalls) {
                     console.log("Received tool calls:", toolCalls);
+                }
+
+                // Calculate cost if we have usage data and pricing
+                let costUsd: number | undefined;
+                if (
+                    usageData?.prompt_tokens &&
+                    usageData?.completion_tokens &&
+                    modelConfig.promptPricePerToken !== undefined &&
+                    modelConfig.completionPricePerToken !== undefined
+                ) {
+                    costUsd = calculateCost(
+                        usageData.prompt_tokens,
+                        usageData.completion_tokens,
+                        modelConfig.promptPricePerToken,
+                        modelConfig.completionPricePerToken,
+                    );
+                    console.log(
+                        `Cost for ${modelConfig.modelId}: ${formatCost(costUsd)}`,
+                    );
+                } else if (usageData?.prompt_tokens && usageData?.completion_tokens) {
+                    console.warn(
+                        `No pricing data for model: ${modelConfig.modelId}`,
+                    );
                 }
 
                 // Update message part in the db
@@ -1139,6 +1169,35 @@ export function useStreamMessagePart() {
                     console.debug(
                         "Skipped message part update. This could be because the user hit the stop button.",
                     );
+                }
+
+                // Update message with usage and cost data
+                if (usageData) {
+                    await db.execute(
+                        `UPDATE messages
+                        SET prompt_tokens = $1,
+                            completion_tokens = $2,
+                            total_tokens = $3,
+                            cost_usd = $4
+                        WHERE id = $5 AND streaming_token = $6`,
+                        [
+                            usageData.prompt_tokens ?? null,
+                            usageData.completion_tokens ?? null,
+                            usageData.total_tokens ?? null,
+                            costUsd ?? null,
+                            messageId,
+                            streamingToken,
+                        ],
+                    );
+
+                    // Update chat's total cost
+                    await updateChatCost(chatId);
+
+                    // Update project's total cost
+                    const chat = await fetchChat(chatId);
+                    if (chat.projectId) {
+                        await updateProjectCost(chat.projectId);
+                    }
                 }
 
                 // do not set message to idle, since we may stream more parts later
@@ -1313,6 +1372,7 @@ export function useStreamMessageLegacy() {
             const onComplete = async (
                 finalText: string | undefined,
                 toolCalls?: UserToolCall[],
+                usageData?: UsageData,
             ) => {
                 if (toolCalls && toolCalls.length > 0) {
                     console.error("Dropping unexpected tool calls", toolCalls);
@@ -1328,13 +1388,55 @@ export function useStreamMessageLegacy() {
                     streamingToken,
                 );
 
+                // Calculate cost if we have usage data and pricing
+                let costUsd: number | undefined;
+                if (
+                    usageData?.prompt_tokens &&
+                    usageData?.completion_tokens &&
+                    modelConfig.promptPricePerToken !== undefined &&
+                    modelConfig.completionPricePerToken !== undefined
+                ) {
+                    costUsd = calculateCost(
+                        usageData.prompt_tokens,
+                        usageData.completion_tokens,
+                        modelConfig.promptPricePerToken,
+                        modelConfig.completionPricePerToken,
+                    );
+                    console.log(
+                        `Cost for ${modelConfig.modelId}: ${formatCost(costUsd)}`,
+                    );
+                } else if (usageData?.prompt_tokens && usageData?.completion_tokens) {
+                    console.warn(
+                        `No pricing data for model: ${modelConfig.modelId}`,
+                    );
+                }
+
                 // Update the message in the database including tool calls if present
                 await db.execute(
                     `UPDATE messages
-                    SET streaming_token = NULL, state = 'idle', text = ?
+                    SET streaming_token = NULL, state = 'idle', text = ?,
+                        prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, cost_usd = ?
                     WHERE id = ? AND streaming_token = ?`,
-                    [finalText, messageId, streamingToken],
+                    [
+                        finalText,
+                        usageData?.prompt_tokens ?? null,
+                        usageData?.completion_tokens ?? null,
+                        usageData?.total_tokens ?? null,
+                        costUsd ?? null,
+                        messageId,
+                        streamingToken,
+                    ],
                 );
+
+                // Update chat and project costs if we have usage data
+                if (usageData) {
+                    await updateChatCost(chatId);
+
+                    const chat = await fetchChat(chatId);
+                    if (chat.projectId) {
+                        await updateProjectCost(chat.projectId);
+                    }
+                }
 
                 UpdateQueue.getInstance().closeUpdateStream(streamKey);
 
