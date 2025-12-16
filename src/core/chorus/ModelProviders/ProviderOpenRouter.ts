@@ -156,6 +156,20 @@ export class ProviderOpenRouter implements IProvider {
             return undefined;
         }
 
+        // Extract usage data from the last chunk
+        const lastChunk = chunks[chunks.length - 1];
+        let usageData:
+            | { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+            | undefined;
+
+        if (lastChunk?.usage) {
+            usageData = {
+                prompt_tokens: lastChunk.usage.prompt_tokens,
+                completion_tokens: lastChunk.usage.completion_tokens,
+                total_tokens: lastChunk.usage.total_tokens,
+            };
+        }
+
         const toolCalls = OpenAICompletionsAPIUtils.convertToolCalls(
             chunks,
             tools ?? [],
@@ -164,6 +178,7 @@ export class ProviderOpenRouter implements IProvider {
         await onComplete(
             undefined,
             toolCalls.length > 0 ? toolCalls : undefined,
+            usageData,
         );
     }
 }

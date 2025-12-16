@@ -206,6 +206,12 @@ export type ModelConfig = {
     completionPricePerToken?: number;
 };
 
+export type UsageData = {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+};
+
 export type StreamResponseParams = {
     modelConfig: ModelConfig;
     llmConversation: LLMMessage[];
@@ -215,6 +221,7 @@ export type StreamResponseParams = {
     onComplete: (
         finalMessage?: string,
         toolCalls?: UserToolCall[],
+        usageData?: UsageData,
     ) => Promise<void>;
     onError: (errorMessage: string) => void;
     additionalHeaders?: Record<string, string>;
