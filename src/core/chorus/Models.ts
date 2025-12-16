@@ -313,16 +313,19 @@ export async function saveModelAndDefaultConfig(
     db: Database,
     model: Model,
     modelConfigDisplayName: string,
+    pricing?: { promptPricePerToken?: number; completionPricePerToken?: number },
 ): Promise<void> {
     // insert or replace is important. this way I can have a refresh where Ollama / LM studio models are set to disabled if they're not running, and enabled if they are
     await db.execute(
-        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal) VALUES (?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
             model.id,
             model.displayName,
             model.isEnabled ? 1 : 0,
             model.supportedAttachmentTypes,
             model.isInternal ? 1 : 0,
+            pricing?.promptPricePerToken ?? null,
+            pricing?.completionPricePerToken ?? null,
         ],
     );
     await db.execute(
@@ -359,6 +362,12 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
             architecture?: {
                 input_modalities?: string[];
             };
+            pricing: {
+                prompt: string;
+                completion: string;
+                request?: string;
+                image?: string;
+            };
         }[];
     };
 
@@ -386,6 +395,10 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
                     isInternal: false,
                 },
                 `${model.name}`,
+                {
+                    promptPricePerToken: parseFloat(model.pricing.prompt),
+                    completionPricePerToken: parseFloat(model.pricing.completion),
+                },
             );
         }),
     );
