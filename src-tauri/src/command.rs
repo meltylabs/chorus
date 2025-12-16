@@ -772,42 +772,46 @@ pub fn get_file_metadata(path: String) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-pub fn check_claude_code_available() -> Result<serde_json::Value, String> {
+pub async fn check_claude_code_available() -> Result<serde_json::Value, String> {
     use std::process::Command;
 
-    let which_output = Command::new("which")
-        .arg("claude")
-        .output();
+    let result = tauri::async_runtime::spawn_blocking(|| {
+        let which_output = Command::new("which")
+            .arg("claude")
+            .output();
 
-    let cli_exists = match which_output {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
-    };
+        let cli_exists = match which_output {
+            Ok(output) => output.status.success(),
+            Err(_) => false,
+        };
 
-    if !cli_exists {
-        return Ok(serde_json::json!({
-            "available": false,
-            "version": null,
-            "authenticated": false
-        }));
-    }
-
-    let version_output = Command::new("claude")
-        .arg("--version")
-        .output();
-
-    let version = match version_output {
-        Ok(output) if output.status.success() => {
-            Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        if !cli_exists {
+            return serde_json::json!({
+                "available": false,
+                "version": null,
+                "authenticated": false
+            });
         }
-        _ => None,
-    };
 
-    Ok(serde_json::json!({
-        "available": true,
-        "version": version,
-        "authenticated": true
-    }))
+        let version_output = Command::new("claude")
+            .arg("--version")
+            .output();
+
+        let version = match version_output {
+            Ok(output) if output.status.success() => {
+                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            }
+            _ => None,
+        };
+
+        serde_json::json!({
+            "available": true,
+            "version": version,
+            "authenticated": true
+        })
+    }).await.map_err(|e| format!("Failed to check Claude Code availability: {}", e))?;
+
+    Ok(result)
 }
 
 /// Stream a response from Claude Code CLI
