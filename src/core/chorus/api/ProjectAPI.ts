@@ -43,6 +43,8 @@ export type Project = {
     contextText?: string;
     magicProjectsEnabled: boolean;
     isImported: boolean;
+    // Cost tracking
+    totalCostUsd?: number;
 };
 
 export type Projects = {

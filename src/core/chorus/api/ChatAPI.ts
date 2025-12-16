@@ -38,6 +38,9 @@ export type Chat = {
     gcPrototype: boolean;
 
     pinned: boolean; // deprecated
+
+    // Cost tracking
+    totalCostUsd?: number;
 };
 
 type ChatDBRow = {
