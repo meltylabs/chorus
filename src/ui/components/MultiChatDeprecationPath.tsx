@@ -500,10 +500,10 @@ function AIMessageView({
                     </div>
                 </div>
 
-                <div>
+                <div className="relative">
                     <div
                         className={`${
-                            message.selected ? "" : "relative overflow-y-auto"
+                            message.selected ? "" : "overflow-y-auto"
                         }
                     ${isQuickChatWindow ? "py-2.5 border !border-border-accent max-w-full inline-block break-words px-3.5 rounded-xl" : "p-4 pb-6"}`}
                     >
@@ -556,11 +556,11 @@ function AIMessageView({
                     {!isQuickChatWindow &&
                         message.costUsd !== undefined &&
                         message.state !== "streaming" && (
-                            <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground font-mono uppercase tabular-nums">
-                                Cost: {formatCost(message.costUsd)}
+                            <div className="absolute bottom-1 right-4 text-[10px] text-muted-foreground font-mono tabular-nums">
+                                {formatCost(message.costUsd)}
                                 {message.promptTokens &&
                                     message.completionTokens && (
-                                        <span className="ml-2">
+                                        <span className="ml-2 opacity-70">
                                             ({message.promptTokens.toLocaleString()} →{" "}
                                             {message.completionTokens.toLocaleString()}{" "}
                                             tokens)
