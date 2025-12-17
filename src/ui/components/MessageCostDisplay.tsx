@@ -21,7 +21,7 @@ export function MessageCostDisplay({
     }
 
     return (
-        <div className="absolute bottom-1 left-4 text-[10px] text-muted-foreground font-mono tabular-nums">
+        <div className="absolute bottom-1 right-4 text-[10px] text-muted-foreground font-mono tabular-nums text-right">
             {formatCost(costUsd)}
             {promptTokens && completionTokens && (
                 <span className="ml-2 opacity-70">
