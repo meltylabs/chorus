@@ -210,6 +210,7 @@ export type UsageData = {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    generation_id?: string; // OpenRouter generation ID for fetching actual costs
 };
 
 export type StreamResponseParams = {

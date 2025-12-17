@@ -42,6 +42,7 @@ import {
 import {
     calculateCost,
     updateChatAndProjectCosts,
+    fetchOpenRouterCost,
 } from "./CostAPI";
 import {
     projectQueries,
@@ -1124,9 +1125,31 @@ export function useStreamMessagePart() {
 
                 const hasToolCalls = toolCalls && toolCalls.length > 0;
 
-                // Calculate cost if we have usage data and pricing
+                // Calculate cost - use OpenRouter's actual cost when available
                 let costUsd: number | undefined;
+                let actualPromptTokens = usageData?.prompt_tokens;
+                let actualCompletionTokens = usageData?.completion_tokens;
+
+                // For OpenRouter models with generation ID, fetch actual costs
                 if (
+                    usageData?.generation_id &&
+                    modelConfig.modelId.startsWith("openrouter::")
+                ) {
+                    const openRouterCost = await fetchOpenRouterCost(
+                        usageData.generation_id,
+                        apiKeys.openrouter!,
+                    );
+                    if (openRouterCost) {
+                        costUsd = openRouterCost.cost;
+                        // Use native token counts from OpenRouter
+                        actualPromptTokens = openRouterCost.promptTokens;
+                        actualCompletionTokens = openRouterCost.completionTokens;
+                    }
+                }
+
+                // Fallback to calculated cost for non-OpenRouter or if fetch failed
+                if (
+                    costUsd === undefined &&
                     usageData?.prompt_tokens &&
                     usageData?.completion_tokens &&
                     modelConfig.promptPricePerToken !== undefined &&
@@ -1176,9 +1199,9 @@ export function useStreamMessagePart() {
                             cost_usd = COALESCE(cost_usd, 0) + $4
                         WHERE id = $5 AND streaming_token = $6`,
                         [
-                            usageData.prompt_tokens ?? 0,
-                            usageData.completion_tokens ?? 0,
-                            usageData.total_tokens ?? 0,
+                            actualPromptTokens ?? 0,
+                            actualCompletionTokens ?? 0,
+                            (actualPromptTokens ?? 0) + (actualCompletionTokens ?? 0),
                             costUsd ?? 0,
                             messageId,
                             streamingToken,

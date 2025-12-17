@@ -1,7 +1,73 @@
 import { db } from "../DB";
 
 /**
- * Calculate cost from token usage and pricing
+ * OpenRouter generation endpoint response type
+ */
+interface OpenRouterGenerationResponse {
+    data: {
+        id: string;
+        model: string;
+        streamed: boolean;
+        generation_time: number;
+        created_at: string;
+        tokens_prompt: number;
+        tokens_completion: number;
+        native_tokens_prompt?: number;
+        native_tokens_completion?: number;
+        num_media_generations?: number;
+        usage: number; // cost in USD
+        app_id?: number;
+        latency?: number;
+        moderation_latency?: number;
+        total_cost: number; // in USD
+    };
+}
+
+/**
+ * Fetch actual cost from OpenRouter generation endpoint
+ * Returns the authoritative cost including tiered pricing, caching, etc.
+ */
+export async function fetchOpenRouterCost(
+    generationId: string,
+    apiKey: string,
+): Promise<{
+    cost: number;
+    promptTokens: number;
+    completionTokens: number;
+} | null> {
+    try {
+        const response = await fetch(
+            `https://openrouter.ai/api/v1/generation?id=${generationId}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                },
+            },
+        );
+
+        if (!response.ok) {
+            console.warn(
+                `Failed to fetch OpenRouter generation data: ${response.status}`,
+            );
+            return null;
+        }
+
+        const data = (await response.json()) as OpenRouterGenerationResponse;
+
+        return {
+            cost: data.data.total_cost,
+            promptTokens: data.data.native_tokens_prompt ?? data.data.tokens_prompt,
+            completionTokens:
+                data.data.native_tokens_completion ?? data.data.tokens_completion,
+        };
+    } catch (error) {
+        console.error("Error fetching OpenRouter generation cost:", error);
+        return null;
+    }
+}
+
+/**
+ * Calculate cost from token usage and pricing (fallback for non-OpenRouter models)
  */
 export function calculateCost(
     promptTokens: number,
