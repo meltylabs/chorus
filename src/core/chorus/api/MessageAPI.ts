@@ -33,7 +33,7 @@ import { useAppContext } from "@ui/hooks/useAppContext";
 import { db } from "../DB";
 import { draftKeys } from "./DraftAPI";
 import { updateSavedModelConfigChat } from "./ModelConfigChatAPI";
-import { chatIsLoadingQueries, chatQueries, fetchChat } from "./ChatAPI";
+import { chatIsLoadingQueries, chatQueries } from "./ChatAPI";
 import {
     appMetadataKeys,
     getApiKeys,

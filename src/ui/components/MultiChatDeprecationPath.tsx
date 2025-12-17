@@ -558,7 +558,7 @@ function AIMessageView({
                         promptTokens={message.promptTokens}
                         completionTokens={message.completionTokens}
                         isStreaming={message.state === "streaming"}
-                        isQuickChatWindow={isQuickChatWindow}
+                        isQuickChatWindow={isQuickChatWindow ?? false}
                     />
                 </div>
             </div>
