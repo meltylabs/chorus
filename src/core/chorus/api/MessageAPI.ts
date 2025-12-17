@@ -41,9 +41,7 @@ import {
 } from "./AppMetadataAPI";
 import {
     calculateCost,
-    formatCost,
-    updateChatCost,
-    updateProjectCost,
+    updateChatAndProjectCosts,
 } from "./CostAPI";
 import {
     projectQueries,
@@ -1117,7 +1115,6 @@ export function useStreamMessagePart() {
                 toolCalls?: UserToolCall[],
                 usageData?: UsageData,
             ) => {
-                console.log("onComplete", finalText, toolCalls, usageData);
                 // if the provider didn't give us final text, then we use the
                 // one we've been accumulating
                 finalText = finalText ?? partialResponse;
@@ -1126,10 +1123,6 @@ export function useStreamMessagePart() {
                 updateMessagePartInCache(finalText, streamingToken);
 
                 const hasToolCalls = toolCalls && toolCalls.length > 0;
-
-                if (hasToolCalls) {
-                    console.log("Received tool calls:", toolCalls);
-                }
 
                 // Calculate cost if we have usage data and pricing
                 let costUsd: number | undefined;
@@ -1144,13 +1137,6 @@ export function useStreamMessagePart() {
                         usageData.completion_tokens,
                         modelConfig.promptPricePerToken,
                         modelConfig.completionPricePerToken,
-                    );
-                    console.log(
-                        `Cost for ${modelConfig.modelId}: ${formatCost(costUsd)}`,
-                    );
-                } else if (usageData?.prompt_tokens && usageData?.completion_tokens) {
-                    console.warn(
-                        `No pricing data for model: ${modelConfig.modelId}`,
                     );
                 }
 
@@ -1198,21 +1184,15 @@ export function useStreamMessagePart() {
                         ],
                     );
 
-                    // Update chat's total cost
-                    await updateChatCost(chatId);
-
-                    // Update project's total cost
-                    const chat = await fetchChat(chatId);
-                    if (chat.projectId) {
-                        await updateProjectCost(chat.projectId);
-                    }
+                    // Update chat and project costs efficiently
+                    const projectId = await updateChatAndProjectCosts(chatId);
 
                     // Invalidate queries to refresh UI with updated costs
                     await queryClient.invalidateQueries(chatQueries.list());
                     await queryClient.invalidateQueries(
                         chatQueries.detail(chatId),
                     );
-                    if (chat.projectId) {
+                    if (projectId) {
                         await queryClient.invalidateQueries(
                             projectQueries.list(),
                         );
@@ -1421,13 +1401,6 @@ export function useStreamMessageLegacy() {
                         modelConfig.promptPricePerToken,
                         modelConfig.completionPricePerToken,
                     );
-                    console.log(
-                        `Cost for ${modelConfig.modelId}: ${formatCost(costUsd)}`,
-                    );
-                } else if (usageData?.prompt_tokens && usageData?.completion_tokens) {
-                    console.warn(
-                        `No pricing data for model: ${modelConfig.modelId}`,
-                    );
                 }
 
                 // Update the message in the database including tool calls if present
@@ -1449,19 +1422,14 @@ export function useStreamMessageLegacy() {
 
                 // Update chat and project costs if we have usage data
                 if (usageData) {
-                    await updateChatCost(chatId);
-
-                    const chat = await fetchChat(chatId);
-                    if (chat.projectId) {
-                        await updateProjectCost(chat.projectId);
-                    }
+                    const projectId = await updateChatAndProjectCosts(chatId);
 
                     // Invalidate queries to refresh UI with updated costs
                     await queryClient.invalidateQueries(chatQueries.list());
                     await queryClient.invalidateQueries(
                         chatQueries.detail(chatId),
                     );
-                    if (chat.projectId) {
+                    if (projectId) {
                         await queryClient.invalidateQueries(
                             projectQueries.list(),
                         );

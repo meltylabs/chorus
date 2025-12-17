@@ -47,8 +47,8 @@ import {
 import { Metrics } from "./Metrics";
 import * as Reviews from "@core/chorus/reviews";
 import * as Brainstorms from "@core/chorus/brainstorm";
-import { formatCost } from "@core/chorus/api/CostAPI";
 import Markdown from "react-markdown";
+import { MessageCostDisplay } from "./MessageCostDisplay";
 import { Skeleton } from "./ui/skeleton";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useWaitForAppMetadata } from "@ui/hooks/useWaitForAppMetadata";
@@ -553,21 +553,13 @@ function AIMessageView({
                             isStreaming={message.state === "streaming"}
                         />
                     )}
-                    {!isQuickChatWindow &&
-                        message.costUsd !== undefined &&
-                        message.state !== "streaming" && (
-                            <div className="absolute bottom-1 left-4 text-[10px] text-muted-foreground font-mono tabular-nums">
-                                {formatCost(message.costUsd)}
-                                {message.promptTokens &&
-                                    message.completionTokens && (
-                                        <span className="ml-2 opacity-70">
-                                            ({message.promptTokens.toLocaleString()} →{" "}
-                                            {message.completionTokens.toLocaleString()}{" "}
-                                            tokens)
-                                        </span>
-                                    )}
-                            </div>
-                        )}
+                    <MessageCostDisplay
+                        costUsd={message.costUsd}
+                        promptTokens={message.promptTokens}
+                        completionTokens={message.completionTokens}
+                        isStreaming={message.state === "streaming"}
+                        isQuickChatWindow={isQuickChatWindow}
+                    />
                 </div>
             </div>
 

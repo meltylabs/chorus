@@ -344,17 +344,17 @@ function Project({ projectId }: { projectId: string }) {
                             </div>
                         </CollapsibleTrigger>
                         <h2
-                            className="truncate text-base pr-3"
+                            className="truncate text-base"
                             onClick={handleProjectClick}
                         >
                             {projectDisplayName(project?.name)}
-                            {project?.totalCostUsd !== undefined &&
-                                project.totalCostUsd > 0 && (
-                                    <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                        ({formatCost(project.totalCostUsd)})
-                                    </span>
-                                )}
                         </h2>
+                        {project?.totalCostUsd !== undefined &&
+                            project.totalCostUsd > 0 && (
+                                <span className="ml-auto pr-8 text-xs text-muted-foreground font-normal flex-shrink-0">
+                                    {formatCost(project.totalCostUsd)}
+                                </span>
+                            )}
                     </span>
 
                     {/* Gradient overlay that appears when hovering */}

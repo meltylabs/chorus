@@ -394,6 +394,15 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
                 Array.isArray(model.architecture?.input_modalities) &&
                 model.architecture.input_modalities.includes("image");
 
+            // Parse and validate pricing data
+            const promptPrice = parseFloat(model.pricing.prompt);
+            const completionPrice = parseFloat(model.pricing.completion);
+            const hasPricing =
+                !isNaN(promptPrice) &&
+                !isNaN(completionPrice) &&
+                isFinite(promptPrice) &&
+                isFinite(completionPrice);
+
             return saveModelAndDefaultConfig(
                 db,
                 {
@@ -406,10 +415,12 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
                     isInternal: false,
                 },
                 `${model.name}`,
-                {
-                    promptPricePerToken: parseFloat(model.pricing.prompt),
-                    completionPricePerToken: parseFloat(model.pricing.completion),
-                },
+                hasPricing
+                    ? {
+                          promptPricePerToken: promptPrice,
+                          completionPricePerToken: completionPrice,
+                      }
+                    : undefined,
             );
         }),
     );

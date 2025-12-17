@@ -112,12 +112,12 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { filterReplyMessageSets } from "@ui/lib/replyUtils";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
-import { formatCost } from "@core/chorus/api/CostAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import SimpleCopyButton from "./unused/CopyButton";
+import { MessageCostDisplay } from "./MessageCostDisplay";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import {
     isPermissionGranted,
@@ -1077,20 +1077,13 @@ function ToolsAIMessageViewInner({
                                 //         isStreaming={message.state === "streaming"}
                                 //     />
                                 // )} */}
-            {!isQuickChatWindow &&
-                message.costUsd !== undefined &&
-                message.state !== "streaming" && (
-                    <div className="absolute bottom-1 left-4 text-[10px] text-muted-foreground font-mono tabular-nums">
-                        {formatCost(message.costUsd)}
-                        {message.promptTokens && message.completionTokens && (
-                            <span className="ml-2 opacity-70">
-                                ({message.promptTokens.toLocaleString()} →{" "}
-                                {message.completionTokens.toLocaleString()}{" "}
-                                tokens)
-                            </span>
-                        )}
-                    </div>
-                )}
+            <MessageCostDisplay
+                costUsd={message.costUsd}
+                promptTokens={message.promptTokens}
+                completionTokens={message.completionTokens}
+                isStreaming={message.state === "streaming"}
+                isQuickChatWindow={isQuickChatWindow}
+            />
         </div>
     );
 }
