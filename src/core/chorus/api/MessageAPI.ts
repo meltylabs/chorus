@@ -1206,6 +1206,17 @@ export function useStreamMessagePart() {
                     if (chat.projectId) {
                         await updateProjectCost(chat.projectId);
                     }
+
+                    // Invalidate queries to refresh UI with updated costs
+                    await queryClient.invalidateQueries(chatQueries.list());
+                    await queryClient.invalidateQueries(
+                        chatQueries.detail(chatId),
+                    );
+                    if (chat.projectId) {
+                        await queryClient.invalidateQueries(
+                            projectQueries.list(),
+                        );
+                    }
                 }
 
                 // do not set message to idle, since we may stream more parts later
@@ -1443,6 +1454,17 @@ export function useStreamMessageLegacy() {
                     const chat = await fetchChat(chatId);
                     if (chat.projectId) {
                         await updateProjectCost(chat.projectId);
+                    }
+
+                    // Invalidate queries to refresh UI with updated costs
+                    await queryClient.invalidateQueries(chatQueries.list());
+                    await queryClient.invalidateQueries(
+                        chatQueries.detail(chatId),
+                    );
+                    if (chat.projectId) {
+                        await queryClient.invalidateQueries(
+                            projectQueries.list(),
+                        );
                     }
                 }
 
