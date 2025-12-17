@@ -556,7 +556,7 @@ function AIMessageView({
                     {!isQuickChatWindow &&
                         message.costUsd !== undefined &&
                         message.state !== "streaming" && (
-                            <div className="absolute bottom-1 right-4 text-[10px] text-muted-foreground font-mono tabular-nums">
+                            <div className="absolute bottom-1 left-4 text-[10px] text-muted-foreground font-mono tabular-nums">
                                 {formatCost(message.costUsd)}
                                 {message.promptTokens &&
                                     message.completionTokens && (
