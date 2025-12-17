@@ -1166,19 +1166,20 @@ export function useStreamMessagePart() {
                 }
 
                 // Update message with usage and cost data
+                // Accumulate costs across multiple message parts (e.g., tool call rounds)
                 if (usageData) {
                     await db.execute(
                         `UPDATE messages
-                        SET prompt_tokens = $1,
-                            completion_tokens = $2,
-                            total_tokens = $3,
-                            cost_usd = $4
+                        SET prompt_tokens = COALESCE(prompt_tokens, 0) + $1,
+                            completion_tokens = COALESCE(completion_tokens, 0) + $2,
+                            total_tokens = COALESCE(total_tokens, 0) + $3,
+                            cost_usd = COALESCE(cost_usd, 0) + $4
                         WHERE id = $5 AND streaming_token = $6`,
                         [
-                            usageData.prompt_tokens ?? null,
-                            usageData.completion_tokens ?? null,
-                            usageData.total_tokens ?? null,
-                            costUsd ?? null,
+                            usageData.prompt_tokens ?? 0,
+                            usageData.completion_tokens ?? 0,
+                            usageData.total_tokens ?? 0,
+                            costUsd ?? 0,
                             messageId,
                             streamingToken,
                         ],
