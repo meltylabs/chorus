@@ -29,4 +29,6 @@ pnpm run setup  # This is also our Conductor setup script
 pnpm run dev    # This is also our Conductor run script
 ```
 
-Vite will run on a random even-numbered port between 1422 and 1522, inclusive. HMR will run on the next port. If there's a collision, change the instance name (makes sure to rerun the setup script).
+# Nightly Build
+
+You can download the [nightly build here](https://cdn.crabnebula.app/download/chorus/chorus/latest/platform/dmg-aarch64?channel=qa). Every push to main triggers a new build.

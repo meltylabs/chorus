@@ -485,11 +485,33 @@ export function ManageModelsBox({
             (m) => getProviderName(m.modelId) === "claude-code",
         );
 
+        // Direct provider models grouped by provider
+        const directProviders = [
+            "anthropic",
+            "openai",
+            "google",
+            "perplexity",
+            "grok",
+        ] as const;
+
+        const directByProvider = Object.fromEntries(
+            directProviders.map((provider) => [
+                provider,
+                filterBySearch(
+                    systemModels.filter(
+                        (m) => getProviderName(m.modelId) === provider,
+                    ),
+                    searchTerms,
+                ),
+            ]),
+        ) as Record<(typeof directProviders)[number], ModelConfig[]>;
+
         return {
             custom: filterBySearch(userModels, searchTerms),
             local: filterBySearch(localModels, searchTerms),
             openrouter: filterBySearch(openrouterModels, searchTerms),
             claudeCode: filterBySearch(claudeCodeModels, searchTerms),
+            directByProvider,
         };
     }, [modelConfigs.data, searchQuery]);
 
@@ -723,6 +745,63 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="claude-code"
                             claudeCodeAvailable={claudeCodeAvailable}
+                        />
+                    )}
+
+                    {/* Direct Provider Models (Anthropic, OpenAI, Google, etc.) */}
+                    {modelGroups.directByProvider.anthropic.length > 0 && (
+                        <ModelGroup
+                            heading="Anthropic"
+                            models={modelGroups.directByProvider.anthropic}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="anthropic"
+                        />
+                    )}
+                    {modelGroups.directByProvider.openai.length > 0 && (
+                        <ModelGroup
+                            heading="OpenAI"
+                            models={modelGroups.directByProvider.openai}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="openai"
+                        />
+                    )}
+                    {modelGroups.directByProvider.google.length > 0 && (
+                        <ModelGroup
+                            heading="Google"
+                            models={modelGroups.directByProvider.google}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="google"
+                        />
+                    )}
+                    {modelGroups.directByProvider.grok.length > 0 && (
+                        <ModelGroup
+                            heading="Grok"
+                            models={modelGroups.directByProvider.grok}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="grok"
+                        />
+                    )}
+                    {modelGroups.directByProvider.perplexity.length > 0 && (
+                        <ModelGroup
+                            heading="Perplexity"
+                            models={modelGroups.directByProvider.perplexity}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="perplexity"
                         />
                     )}
 
