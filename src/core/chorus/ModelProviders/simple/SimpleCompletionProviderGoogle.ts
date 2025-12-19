@@ -50,11 +50,14 @@ export class SimpleCompletionProviderGoogle
     }
 
     private getModel(model: SimpleCompletionMode | string | undefined): string {
-        if (typeof model === "string") {
-            return model;
-        }
         if (model === SimpleCompletionMode.SUMMARIZER) {
             return DEFAULT_SUMMARIZER_MODEL;
+        }
+        if (model === SimpleCompletionMode.TITLE_GENERATION) {
+            return DEFAULT_TITLE_MODEL;
+        }
+        if (typeof model === "string") {
+            return model;
         }
         return DEFAULT_TITLE_MODEL;
     }
