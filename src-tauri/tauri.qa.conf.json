@@ -1,6 +1,6 @@
 {
     "$schema": "https://schema.tauri.app/config/2.0.2",
-    "productName": "Chorus",
+    "productName": "Chorus Nightly",
     "version": "0.14.1",
     "identifier": "sh.chorus.app.qa",
     "build": {
@@ -13,7 +13,7 @@
         "macOSPrivateApi": true,
         "windows": [
             {
-                "title": "Chorus QA",
+                "title": "Chorus Nightly",
                 "label": "main",
                 "titleBarStyle": "Overlay",
                 "url": "/",
