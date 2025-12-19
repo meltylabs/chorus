@@ -47,7 +47,7 @@ jobs:
                   version: 9
             - uses: actions/setup-node@v4
               with:
-                  node-version: "20"
+                  node-version: "22"
             - name: Install stable toolchain
               uses: actions-rust-lang/setup-rust-toolchain@v1
               with:
