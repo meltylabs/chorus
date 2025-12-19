@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -13,11 +13,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     const [isSaving, setIsSaving] = useState(false);
     const queryClient = useQueryClient();
 
-    const handleNextStep = () => {
+    const handleNextStep = useCallback(() => {
         setOnboardingStep.mutate({ step: 1 });
-    };
+    }, [setOnboardingStep]);
 
-    const handleSaveAndComplete = async () => {
+    const handleSaveAndComplete = useCallback(async () => {
         if (openRouterKey.trim()) {
             setIsSaving(true);
             const settingsManager = SettingsManager.getInstance();
@@ -34,7 +34,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
             setIsSaving(false);
         }
         onComplete();
-    };
+    }, [openRouterKey, queryClient, onComplete]);
 
     // Allow pressing Enter to continue quickly
     useEffect(() => {
@@ -51,7 +51,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [onboardingStep, openRouterKey]);
+    }, [onboardingStep, handleNextStep, handleSaveAndComplete]);
 
     if (onboardingStep === 0) {
         return (

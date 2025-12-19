@@ -174,29 +174,32 @@ export async function fetchMessageSets(chatId: string) {
                 "SELECT * FROM messages WHERE chat_id = ?",
                 [chatId],
             ),
-            (
-                await db.select<MessagePartDBRow[]>(
-                    `SELECT * FROM message_parts WHERE chat_id = ?`,
-                    [chatId],
-                )
-            ).reduce((acc, mp) => {
-                // put the message parts into a map by message_id
-                if (!acc.has(mp.message_id)) acc.set(mp.message_id, []);
-                acc.get(mp.message_id)!.push(mp);
-                return acc;
-            }, new Map<string, MessagePartDBRow[]>()),
-            (
-                await db.select<(AttachmentDBRow & { message_id: string })[]>(
+            db
+                .select<
+                    MessagePartDBRow[]
+                >(`SELECT * FROM message_parts WHERE chat_id = ?`, [chatId])
+                .then((rows) =>
+                    rows.reduce((acc, mp) => {
+                        // put the message parts into a map by message_id
+                        if (!acc.has(mp.message_id)) acc.set(mp.message_id, []);
+                        acc.get(mp.message_id)!.push(mp);
+                        return acc;
+                    }, new Map<string, MessagePartDBRow[]>()),
+                ),
+            db
+                .select<(AttachmentDBRow & { message_id: string })[]>(
                     `SELECT message_id, attachments.id, type, original_name, path, is_loading, ephemeral FROM message_attachments
                 JOIN attachments ON message_attachments.attachment_id = attachments.id
                 WHERE message_id in (select id from messages where chat_id = ?)`,
                     [chatId],
                 )
-            ).reduce((acc, a) => {
-                if (!acc.has(a.message_id)) acc.set(a.message_id, []);
-                acc.get(a.message_id)!.push(a);
-                return acc;
-            }, new Map<string, AttachmentDBRow[]>()),
+                .then((rows) =>
+                    rows.reduce((acc, a) => {
+                        if (!acc.has(a.message_id)) acc.set(a.message_id, []);
+                        acc.get(a.message_id)!.push(a);
+                        return acc;
+                    }, new Map<string, AttachmentDBRow[]>()),
+                ),
         ]);
 
     const messages = messagesDbRows.map((m) =>
