@@ -70,8 +70,8 @@ type ModelConfigDBRow = {
 };
 
 // Track whether we've attempted to refresh OpenRouter models within
-// the current session.
-let hasAttemptedOpenRouterRefresh = false;
+// the current session, and store the promise if a download is in progress.
+let openRouterDownloadPromise: Promise<number> | null = null;
 
 function readModel(row: ModelDBRow): Models.Model {
     return {
@@ -108,9 +108,17 @@ function readModelConfig(row: ModelConfigDBRow): ModelConfig {
 export async function fetchModelConfigs() {
     // Fetch OpenRouter models if we haven't already and the user has an OpenRouter API key.
     const apiKeys = await getApiKeys();
-    if (apiKeys.openrouter && !hasAttemptedOpenRouterRefresh) {
-        hasAttemptedOpenRouterRefresh = true;
-        await Models.downloadOpenRouterModels(db);
+    if (apiKeys.openrouter) {
+        // If a download is already in progress, wait for it to complete.
+        // Otherwise, start a new download and store the promise.
+        if (openRouterDownloadPromise) {
+            await openRouterDownloadPromise;
+        } else {
+            openRouterDownloadPromise = Models.downloadOpenRouterModels(db);
+            await openRouterDownloadPromise;
+            // Keep the promise stored so subsequent calls know it completed
+            // (we don't clear it to prevent re-downloads within the session)
+        }
     }
 
     return (
