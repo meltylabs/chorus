@@ -50,7 +50,7 @@ export class SettingsManager {
                 apiKeys: {},
                 quickChat: {
                     enabled: true,
-                    modelConfigId: "anthropic::claude-3-5-sonnet-latest",
+                    modelConfigId: "anthropic::claude-sonnet-4-5-20250929",
                     shortcut: "Alt+Space",
                 },
             };
