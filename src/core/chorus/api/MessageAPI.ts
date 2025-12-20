@@ -1133,11 +1133,12 @@ export function useStreamMessagePart() {
                 // For OpenRouter models with generation ID, fetch actual costs
                 if (
                     usageData?.generation_id &&
-                    modelConfig.modelId.startsWith("openrouter::")
+                    modelConfig.modelId.startsWith("openrouter::") &&
+                    apiKeys.openrouter
                 ) {
                     const openRouterCost = await fetchOpenRouterCost(
                         usageData.generation_id,
-                        apiKeys.openrouter!,
+                        apiKeys.openrouter,
                     );
                     if (openRouterCost) {
                         costUsd = openRouterCost.cost;
@@ -1150,8 +1151,8 @@ export function useStreamMessagePart() {
                 // Fallback to calculated cost for non-OpenRouter or if fetch failed
                 if (
                     costUsd === undefined &&
-                    usageData?.prompt_tokens &&
-                    usageData?.completion_tokens &&
+                    usageData?.prompt_tokens !== undefined &&
+                    usageData?.completion_tokens !== undefined &&
                     modelConfig.promptPricePerToken !== undefined &&
                     modelConfig.completionPricePerToken !== undefined
                 ) {
@@ -1444,11 +1445,34 @@ export function useStreamMessageLegacy() {
                     streamingToken,
                 );
 
-                // Calculate cost if we have usage data and pricing
+                // Calculate cost - use OpenRouter's actual cost when available
                 let costUsd: number | undefined;
+                let actualPromptTokens = usageData?.prompt_tokens;
+                let actualCompletionTokens = usageData?.completion_tokens;
+
+                // For OpenRouter models with generation ID, fetch actual costs
                 if (
-                    usageData?.prompt_tokens &&
-                    usageData?.completion_tokens &&
+                    usageData?.generation_id &&
+                    modelConfig.modelId.startsWith("openrouter::") &&
+                    apiKeys.openrouter
+                ) {
+                    const openRouterCost = await fetchOpenRouterCost(
+                        usageData.generation_id,
+                        apiKeys.openrouter,
+                    );
+                    if (openRouterCost) {
+                        costUsd = openRouterCost.cost;
+                        // Use native token counts from OpenRouter
+                        actualPromptTokens = openRouterCost.promptTokens;
+                        actualCompletionTokens = openRouterCost.completionTokens;
+                    }
+                }
+
+                // Fallback to calculated cost for non-OpenRouter or if fetch failed
+                if (
+                    costUsd === undefined &&
+                    usageData?.prompt_tokens !== undefined &&
+                    usageData?.completion_tokens !== undefined &&
                     modelConfig.promptPricePerToken !== undefined &&
                     modelConfig.completionPricePerToken !== undefined
                 ) {
@@ -1461,6 +1485,13 @@ export function useStreamMessageLegacy() {
                 }
 
                 // Update the message in the database including tool calls if present
+                // Use actual token counts (from OpenRouter when available, otherwise from usage data)
+                const totalTokens =
+                    actualPromptTokens !== undefined &&
+                    actualCompletionTokens !== undefined
+                        ? actualPromptTokens + actualCompletionTokens
+                        : usageData?.total_tokens ?? null;
+
                 await db.execute(
                     `UPDATE messages
                     SET streaming_token = NULL, state = 'idle', text = ?,
@@ -1468,9 +1499,9 @@ export function useStreamMessageLegacy() {
                     WHERE id = ? AND streaming_token = ?`,
                     [
                         finalText,
-                        usageData?.prompt_tokens ?? null,
-                        usageData?.completion_tokens ?? null,
-                        usageData?.total_tokens ?? null,
+                        actualPromptTokens ?? null,
+                        actualCompletionTokens ?? null,
+                        totalTokens,
                         costUsd ?? null,
                         messageId,
                         streamingToken,
