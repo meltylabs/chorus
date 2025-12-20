@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Models from "../Models";
 import { db } from "../DB";
 import { ModelConfig } from "../Models";
+import { getApiKeys } from "./AppMetadataAPI";
 
 // all
 // --> list models
@@ -68,6 +69,10 @@ type ModelConfigDBRow = {
     new_until?: string;
 };
 
+// Track whether we've attempted to refresh OpenRouter models within
+// the current session.
+let hasAttemptedOpenRouterRefresh = false;
+
 function readModel(row: ModelDBRow): Models.Model {
     return {
         id: row.id,
@@ -101,6 +106,13 @@ function readModelConfig(row: ModelConfigDBRow): ModelConfig {
 }
 
 export async function fetchModelConfigs() {
+    // Fetch OpenRouter models if we haven't already and the user has an OpenRouter API key.
+    const apiKeys = await getApiKeys();
+    if (apiKeys.openrouter && !hasAttemptedOpenRouterRefresh) {
+        hasAttemptedOpenRouterRefresh = true;
+        await Models.downloadOpenRouterModels(db);
+    }
+
     return (
         await db.select<ModelConfigDBRow[]>(
             `SELECT model_configs.id, model_configs.display_name, model_configs.author, 
