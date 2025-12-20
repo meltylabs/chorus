@@ -41,6 +41,8 @@ export async function fetchOpenRouterCost(
             {
                 headers: {
                     Authorization: `Bearer ${apiKey}`,
+                    "HTTP-Referer": "https://chorus.sh",
+                    "X-Title": "Chorus",
                 },
             },
         );

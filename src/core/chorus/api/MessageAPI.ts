@@ -1190,23 +1190,56 @@ export function useStreamMessagePart() {
 
                 // Update message with usage and cost data
                 // Accumulate costs across multiple message parts (e.g., tool call rounds)
+                // Only update fields when we have actual values - preserve NULL for unknown costs
                 if (usageData) {
-                    await db.execute(
-                        `UPDATE messages
-                        SET prompt_tokens = COALESCE(prompt_tokens, 0) + $1,
-                            completion_tokens = COALESCE(completion_tokens, 0) + $2,
-                            total_tokens = COALESCE(total_tokens, 0) + $3,
-                            cost_usd = COALESCE(cost_usd, 0) + $4
-                        WHERE id = $5 AND streaming_token = $6`,
-                        [
-                            actualPromptTokens ?? 0,
-                            actualCompletionTokens ?? 0,
-                            (actualPromptTokens ?? 0) + (actualCompletionTokens ?? 0),
-                            costUsd ?? 0,
-                            messageId,
-                            streamingToken,
-                        ],
-                    );
+                    const hasTokens =
+                        actualPromptTokens !== undefined &&
+                        actualCompletionTokens !== undefined;
+                    const hasCost = costUsd !== undefined;
+
+                    if (hasTokens || hasCost) {
+                        // Build SET clause dynamically to avoid writing 0 for unknown values
+                        const setClauses: string[] = [];
+                        const params: (number | string)[] = [];
+
+                        if (
+                            actualPromptTokens !== undefined &&
+                            actualCompletionTokens !== undefined
+                        ) {
+                            setClauses.push(
+                                `prompt_tokens = COALESCE(prompt_tokens, 0) + $${params.length + 1}`,
+                            );
+                            params.push(actualPromptTokens);
+                            setClauses.push(
+                                `completion_tokens = COALESCE(completion_tokens, 0) + $${params.length + 1}`,
+                            );
+                            params.push(actualCompletionTokens);
+                            setClauses.push(
+                                `total_tokens = COALESCE(total_tokens, 0) + $${params.length + 1}`,
+                            );
+                            params.push(
+                                actualPromptTokens + actualCompletionTokens,
+                            );
+                        }
+
+                        if (costUsd !== undefined) {
+                            setClauses.push(
+                                `cost_usd = COALESCE(cost_usd, 0) + $${params.length + 1}`,
+                            );
+                            params.push(costUsd);
+                        }
+
+                        params.push(messageId, streamingToken);
+                        const messageIdParam = params.length - 1;
+                        const tokenParam = params.length;
+
+                        await db.execute(
+                            `UPDATE messages
+                            SET ${setClauses.join(", ")}
+                            WHERE id = $${messageIdParam} AND streaming_token = $${tokenParam}`,
+                            params,
+                        );
+                    }
 
                     // Update chat and project costs efficiently
                     const projectId = await updateChatAndProjectCosts(chatId);
