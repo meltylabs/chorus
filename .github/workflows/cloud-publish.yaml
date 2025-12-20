@@ -34,6 +34,9 @@ jobs:
             matrix:
                 os:
                     - macos-latest
+                architecture:
+                    - aarch64-apple-darwin
+                    - x86_64-apple-darwin
 
         runs-on: ${{ matrix.os }}
 
@@ -63,12 +66,10 @@ jobs:
             # - name: Run ESLint
             #   run: pnpm lint
 
-            - name: Install x86_64-apple-darwin for mac and build Tauri binaries
-              if: matrix.os == 'macos-latest'
+            - name: Build Tauri binaries for ${{ matrix.architecture }}
               run: |
-                  rustup target add x86_64-apple-darwin
-                  pnpm tauri build --target x86_64-apple-darwin --config src-tauri/tauri.conf.json
-                  pnpm tauri build --target aarch64-apple-darwin --config src-tauri/tauri.conf.json
+                  rustup target add ${{ matrix.architecture }}
+                  pnpm tauri build --target ${{ matrix.architecture }} --config src-tauri/tauri.conf.json
               env:
                   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -79,7 +80,7 @@ jobs:
                   APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
                   MELTY_DOWNLOADER_TOKEN: ${{ secrets.MELTY_DOWNLOADER_TOKEN }}
 
-            - name: upload assets
+            - name: Upload assets for ${{ matrix.architecture }}
               uses: crabnebula-dev/cloud-release@v0
               with:
                   command: release upload ${{ env.CN_APPLICATION }} --framework tauri
