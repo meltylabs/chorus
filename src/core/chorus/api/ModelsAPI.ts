@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Models from "../Models";
 import { db } from "../DB";
 import { ModelConfig } from "../Models";
+import { checkClaudeCodeAvailable } from "../ModelProviders/ProviderClaudeCode";
 
 // all
 // --> list models
@@ -408,5 +409,13 @@ export function useCreateModelConfig() {
                 modelConfigQueries.listConfigs(),
             );
         },
+    });
+}
+
+export function useClaudeCodeAvailable() {
+    return useQuery({
+        queryKey: ["claudeCodeAvailable"] as const,
+        queryFn: checkClaudeCodeAvailable,
+        staleTime: 30000,
     });
 }

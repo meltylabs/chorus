@@ -761,12 +761,213 @@ pub async fn write_file_async(path: String, content: Option<Vec<u8>>, source_pat
 #[tauri::command]
 pub fn get_file_metadata(path: String) -> Result<serde_json::Value, String> {
     use std::fs;
-    
+
     let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
-    
+
     Ok(serde_json::json!({
         "size": metadata.len(),
         "isFile": metadata.is_file(),
         "isDirectory": metadata.is_dir()
     }))
+}
+
+#[tauri::command]
+pub async fn check_claude_code_available() -> Result<serde_json::Value, String> {
+    use std::process::Command;
+
+    let result = tauri::async_runtime::spawn_blocking(|| {
+        let which_output = Command::new("which")
+            .arg("claude")
+            .output();
+
+        let cli_exists = match which_output {
+            Ok(output) => output.status.success(),
+            Err(_) => false,
+        };
+
+        if !cli_exists {
+            return serde_json::json!({
+                "available": false,
+                "version": null,
+                "authenticated": false
+            });
+        }
+
+        let version_output = Command::new("claude")
+            .arg("--version")
+            .output();
+
+        let version = match version_output {
+            Ok(output) if output.status.success() => {
+                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            }
+            _ => None,
+        };
+
+        serde_json::json!({
+            "available": true,
+            "version": version,
+            "authenticated": true
+        })
+    }).await.map_err(|e| format!("Failed to check Claude Code availability: {}", e))?;
+
+    Ok(result)
+}
+
+/// Stream a response from Claude Code CLI
+/// This spawns the claude CLI process and emits events as responses stream in
+#[tauri::command]
+pub async fn stream_claude_code_response(
+    app_handle: AppHandle,
+    request_id: String,
+    prompt: String,
+    system_prompt: Option<String>,
+    model: Option<String>,
+    disable_project_context: Option<bool>,
+) -> Result<(), String> {
+    use std::io::{BufRead, BufReader};
+    use std::process::{Command, Stdio};
+
+    // Build the command
+    let mut cmd = Command::new("claude");
+    cmd.arg("-p") // Print mode (non-interactive)
+        .arg("--output-format")
+        .arg("stream-json")
+        .arg("--verbose")
+        .arg("--permission-mode")
+        .arg("bypassPermissions"); // Auto-approve for chat use
+
+    // If we want to disable project context, run without tools and from home directory
+    // This makes Claude act as a general assistant without codebase awareness
+    let disable_context = disable_project_context.unwrap_or(true);
+    if disable_context {
+        // Disable all tools to prevent reading project files
+        cmd.arg("--tools").arg("");
+        // Only load user settings, not project-specific ones
+        cmd.arg("--setting-sources").arg("user");
+        // Run from home directory to avoid picking up any project context
+        if let Ok(home) = std::env::var("HOME") {
+            cmd.current_dir(home);
+        }
+    }
+
+    // Add model if specified
+    if let Some(m) = model {
+        cmd.arg("--model").arg(m);
+    }
+
+    // Add system prompt - use append to keep Claude Code's base capabilities
+    // but add our general assistant instructions
+    if let Some(sp) = system_prompt {
+        if !sp.is_empty() {
+            cmd.arg("--append-system-prompt").arg(sp);
+        }
+    } else if disable_context {
+        // Default prompt for general assistant mode
+        cmd.arg("--append-system-prompt")
+            .arg("You are a helpful general assistant. Answer questions directly and helpfully. Do not reference any specific project or codebase context.");
+    }
+
+    // Add the prompt as the final argument
+    cmd.arg(&prompt);
+
+    // Set up stdio
+    cmd.stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    // Spawn the process
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn claude CLI: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+
+    let request_id_clone = request_id.clone();
+    let app_handle_clone = app_handle.clone();
+
+    // Spawn a thread to read stdout and emit events
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+
+        for line in reader.lines() {
+            match line {
+                Ok(json_line) => {
+                    if !json_line.is_empty() {
+                        // Emit each JSON line as an event
+                        let _ = app_handle_clone.emit(
+                            &format!("claude-code-stream-{}", request_id_clone),
+                            serde_json::json!({
+                                "type": "data",
+                                "data": json_line
+                            })
+                        );
+                    }
+                }
+                Err(e) => {
+                    let _ = app_handle_clone.emit(
+                        &format!("claude-code-stream-{}", request_id_clone),
+                        serde_json::json!({
+                            "type": "error",
+                            "error": format!("Failed to read line: {}", e)
+                        })
+                    );
+                    break;
+                }
+            }
+        }
+    });
+
+    // Spawn a thread to read stderr
+    let request_id_clone2 = request_id.clone();
+    let app_handle_clone2 = app_handle.clone();
+
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        let mut stderr_content = String::new();
+
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                stderr_content.push_str(&l);
+                stderr_content.push('\n');
+            }
+        }
+
+        if !stderr_content.is_empty() {
+            let _ = app_handle_clone2.emit(
+                &format!("claude-code-stream-{}", request_id_clone2),
+                serde_json::json!({
+                    "type": "stderr",
+                    "data": stderr_content
+                })
+            );
+        }
+    });
+
+    // Wait for the process to complete in a separate task
+    let request_id_clone3 = request_id.clone();
+    let app_handle_clone3 = app_handle.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        match child.wait() {
+            Ok(status) => {
+                let _ = app_handle_clone3.emit(
+                    &format!("claude-code-stream-{}", request_id_clone3),
+                    serde_json::json!({
+                        "type": "done",
+                        "exitCode": status.code()
+                    })
+                );
+            }
+            Err(e) => {
+                let _ = app_handle_clone3.emit(
+                    &format!("claude-code-stream-{}", request_id_clone3),
+                    serde_json::json!({
+                        "type": "error",
+                        "error": format!("Process error: {}", e)
+                    })
+                );
+            }
+        }
+    });
+
+    Ok(())
 }

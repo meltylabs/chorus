@@ -2458,5 +2458,20 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     ('selected_model_configs_compare', '["openrouter::anthropic/claude-opus-4.5"]');
             "#,
         },
+        Migration {
+            version: 132,
+            description: "add claude code provider model for using claude code subscription",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Add Claude (via Claude Code) model
+                -- This uses the local Claude Code CLI and subscription instead of an API key
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('claude-code::default', 'Claude (via Claude Code)', 1, '["text", "webpage"]');
+
+                -- Add Claude (via Claude Code) model config
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default, new_until) VALUES
+                    ('system', 'claude-code::default', 'claude-code::default', 'Claude (via Claude Code)', '', 0, '2026-01-15 00:00:00');
+            "#,
+        },
     ];
 }
