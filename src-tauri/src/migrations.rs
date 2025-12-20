@@ -2458,5 +2458,32 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     ('selected_model_configs_compare', '["openrouter::anthropic/claude-opus-4.5"]');
             "#,
         },
+        Migration {
+            version: 132,
+            description: "disable claude 3.5 sonnet and add claude haiku 4.5 and opus 4.5",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Disable Claude 3.5 Sonnet
+                UPDATE models
+                SET is_enabled = 0
+                WHERE id = 'anthropic::claude-3-5-sonnet-latest';
+
+                -- Add Claude Haiku 4.5 model
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('anthropic::claude-haiku-4-5-20251001', 'Claude Haiku 4.5', 1, '["text", "image", "webpage", "pdf"]');
+
+                -- Add Claude Haiku 4.5 model config
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default, new_until) VALUES
+                    ('system', 'anthropic::claude-haiku-4-5-20251001', 'anthropic::claude-haiku-4-5-20251001', 'Claude Haiku 4.5', '', 0, '2025-10-15 00:00:00');
+
+                -- Add Claude Opus 4.5 model via Anthropic (in addition to OpenRouter version)
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('anthropic::claude-opus-4-5-20251101', 'Claude Opus 4.5', 1, '["text", "image", "webpage", "pdf"]');
+
+                -- Add Claude Opus 4.5 model config via Anthropic
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default, new_until) VALUES
+                    ('system', 'anthropic::claude-opus-4-5-20251101', 'anthropic::claude-opus-4-5-20251101', 'Claude Opus 4.5', '', 0, '2025-10-15 00:00:00');
+            "#,
+        },
     ];
 }
