@@ -74,7 +74,7 @@ export class ProviderClaudeCode implements IProvider {
         onComplete,
         onError,
     }: StreamResponseParams): Promise<void> {
-        const requestId = crypto.randomUUID();
+        const requestId = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
 
         const prompt = await this.formatConversationAsPrompt(llmConversation);
 
@@ -122,6 +122,7 @@ export class ProviderClaudeCode implements IProvider {
                     } else if (payload.type === "done") {
                         if (!hasCompleted) {
                             hasCompleted = true;
+
                             if (
                                 payload.exitCode !== undefined &&
                                 payload.exitCode !== 0
@@ -187,9 +188,29 @@ export class ProviderClaudeCode implements IProvider {
     ): boolean {
         if (message.type === "assistant" && message.message?.content) {
             let hadContent = false;
+
             for (const block of message.message.content) {
                 if (block.type === "text" && "text" in block) {
                     onChunk(block.text);
+                    hadContent = true;
+                } else if (block.type === "tool_use" && "name" in block) {
+                    // Emit tool calls immediately as custom tags
+                    const toolBlock = block as {
+                        type: "tool_use";
+                        name: string;
+                        input?: Record<string, unknown>;
+                    };
+                    const input = toolBlock.input
+                        ? JSON.stringify(toolBlock.input, null, 2)
+                        : "";
+
+                    // Base64 encode the content to avoid HTML parsing issues
+                    const encodedInput = Buffer.from(input).toString('base64');
+
+                    const toolTag = `\n<tool-call name="${toolBlock.name}" data-input="${encodedInput}"></tool-call>\n`;
+
+                    // Emit as a tool-call tag that will be grouped by MessageMarkdown
+                    onChunk(toolTag);
                     hadContent = true;
                 }
             }

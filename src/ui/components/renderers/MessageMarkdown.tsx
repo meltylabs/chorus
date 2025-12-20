@@ -9,6 +9,8 @@ import { CodeBlock } from "./CodeBlock";
 import { LatexBlock } from "./LatexBlock";
 import { WebPreview } from "./WebPreview";
 import { ThinkBlock } from "./ThinkBlock";
+import { ToolCallBlock } from "./ToolCallBlock";
+import { ToolCallGroup } from "./ToolCallGroup";
 import { MermaidPreview } from "./Mermaid";
 import { SVGPreview } from "./SVG";
 import { ImagePreview } from "./ImagePreview";
@@ -135,9 +137,43 @@ const Think = ({
     return <ThinkBlock content={content} isComplete={complete === "true"} />;
 };
 
+const ToolCall = ({
+    children,
+    name,
+    "data-input": dataInput,
+}: {
+    children?: React.ReactNode;
+    name?: string;
+    "data-input"?: string;
+}) => {
+    // Decode base64 content if present, otherwise use children
+    let content = "";
+    if (dataInput) {
+        try {
+            content = atob(dataInput);
+        } catch (e) {
+            console.error('[ToolCall] Failed to decode data-input:', e);
+            content = extractTextFromChildren(children);
+        }
+    } else {
+        content = extractTextFromChildren(children);
+    }
+
+    return (
+        <ToolCallBlock
+            toolName={name || "Unknown"}
+            content={content}
+        />
+    );
+};
+
 export const Img = ({ src, alt }: { src?: string; alt?: string }) => {
     if (!src) return null;
     return <ImagePreview src={src} alt={alt || "Generated image"} />;
+};
+
+const ToolCallGroupWrapper = ({ children }: { children?: React.ReactNode }) => {
+    return <ToolCallGroup>{children}</ToolCallGroup>;
 };
 
 const components = {
@@ -149,6 +185,8 @@ const components = {
     th: Th,
     td: Td,
     think: Think,
+    "tool-call": ToolCall,
+    "tool-call-group": ToolCallGroupWrapper,
     img: Img,
 };
 
@@ -241,7 +279,23 @@ export const MessageMarkdown = ({ text }: { text: string }) => {
                 const isComplete = _match.endsWith("&lt;/think&gt;");
                 return `<think complete="${isComplete}">\n${content}\n</think>\n\n`;
             },
+        )
+        // Decode tool-call tags so they can be rendered
+        .replace(
+            /&lt;tool-call\s+name=&quot;([^&]+)&quot;\s+data-input=&quot;([^&]+)&quot;&gt;&lt;\/tool-call&gt;/g,
+            (_match, name, dataInput) => {
+                return `<tool-call name="${name}" data-input="${dataInput}"></tool-call>`;
+            },
+        )
+        // Group consecutive tool-call tags together
+        .replace(
+            /(<tool-call[^>]*><\/tool-call>\s*)+/g,
+            (match) => {
+                return `\n<tool-call-group>\n${match}\n</tool-call-group>\n\n`;
+            },
         );
+
+    const finalProcessedText = processedMainText;
 
     const sourceReferences =
         sourcesSection?.split("\n").reduce(
@@ -256,7 +310,7 @@ export const MessageMarkdown = ({ text }: { text: string }) => {
         ) || {};
 
     // Process citation links in the text
-    const processedText = processedMainText.replace(
+    const processedText = finalProcessedText.replace(
         /\[(\d+)\]/g,
         (match, num: string) => {
             const url = sourceReferences[num];

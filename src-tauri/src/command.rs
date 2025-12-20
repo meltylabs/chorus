@@ -833,15 +833,14 @@ pub async fn stream_claude_code_response(
     cmd.arg("-p") // Print mode (non-interactive)
         .arg("--output-format")
         .arg("stream-json")
+        .arg("--verbose")
         .arg("--permission-mode")
         .arg("bypassPermissions"); // Auto-approve for chat use
 
-    // If we want to disable project context, run without tools and from home directory
-    // This makes Claude act as a general assistant without codebase awareness
+    // If we want to disable project context, only load user settings
+    // but keep tools enabled so we can see tool calls in the UI
     let disable_context = disable_project_context.unwrap_or(true);
     if disable_context {
-        // Disable all tools to prevent reading project files
-        cmd.arg("--tools").arg("");
         // Only load user settings, not project-specific ones
         cmd.arg("--setting-sources").arg("user");
         // Run from home directory to avoid picking up any project context
