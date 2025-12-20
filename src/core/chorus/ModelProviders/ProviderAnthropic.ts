@@ -27,25 +27,66 @@ type MeltyAnthrMessageParam = {
     hasAttachments: boolean;
 };
 
-function getAnthropicModelName(modelName: string): string | undefined {
-    if (
-        ["claude-3-5-sonnet-latest", "claude-3-7-sonnet-latest"].includes(
-            modelName,
-        )
-    ) {
-        return modelName;
-    } else if (modelName === "claude-sonnet-4-latest") {
-        // https://docs.anthropic.com/en/docs/about-claude/models/overview 0 is the new alias for latest
-        return "claude-sonnet-4-0";
-    } else if (modelName === "claude-sonnet-4-5-20250929") {
-        return "claude-sonnet-4-5-20250929";
-    } else if (modelName === "claude-opus-4-latest") {
-        return "claude-opus-4-0";
-    } else if (modelName === "claude-opus-4.1-latest") {
-        return "claude-opus-4-1-20250805";
-    }
+type AnthropicModelConfig = {
+    inputModelName: string;
+    anthropicModelName: string;
+    maxTokens: number;
+};
 
-    return undefined;
+const ANTHROPIC_MODELS: AnthropicModelConfig[] = [
+    {
+        inputModelName: "claude-3-5-sonnet-latest",
+        anthropicModelName: "claude-3-5-sonnet-latest",
+        maxTokens: 8192,
+    },
+    {
+        inputModelName: "claude-3-7-sonnet-latest",
+        anthropicModelName: "claude-3-7-sonnet-latest",
+        maxTokens: 20000,
+    },
+    {
+        inputModelName: "claude-3-7-sonnet-latest-thinking",
+        anthropicModelName: "claude-3-7-sonnet-latest",
+        maxTokens: 10000,
+    },
+    {
+        inputModelName: "claude-sonnet-4-latest",
+        // https://docs.anthropic.com/en/docs/about-claude/models/overview 0 is the new alias for latest
+        anthropicModelName: "claude-sonnet-4-0",
+        maxTokens: 10000,
+    },
+    {
+        inputModelName: "claude-sonnet-4-5-20250929",
+        anthropicModelName: "claude-sonnet-4-5-20250929",
+        maxTokens: 10000,
+    },
+    {
+        inputModelName: "claude-opus-4-latest",
+        anthropicModelName: "claude-opus-4-0",
+        maxTokens: 10000,
+    },
+    {
+        inputModelName: "claude-opus-4.1-latest",
+        anthropicModelName: "claude-opus-4-1-20250805",
+        maxTokens: 10000,
+    },
+    {
+        inputModelName: "claude-haiku-4-5-20251001",
+        anthropicModelName: "claude-haiku-4-5-20251001",
+        maxTokens: 20000,
+    },
+    {
+        inputModelName: "claude-opus-4-5-20251101",
+        anthropicModelName: "claude-opus-4-5-20251101",
+        maxTokens: 20000,
+    },
+];
+
+function getAnthropicModelName(modelName: string): string | undefined {
+    const modelConfig = ANTHROPIC_MODELS.find(
+        (m) => m.inputModelName === modelName,
+    );
+    return modelConfig?.anthropicModelName;
 }
 
 export class ProviderAnthropic implements IProvider {
@@ -356,24 +397,13 @@ async function formatMessageWithAttachments(
 }
 
 const getMaxTokens = (modelId: string) => {
-    if (modelId === "claude-3-5-sonnet-latest") {
-        return 8192;
-    } else if (
-        modelId === "claude-3-7-sonnet-latest" ||
-        modelId === "claude-3-7-sonnet-latest-thinking"
-    ) {
-        return 10000;
-    } else if (modelId === "claude-opus-4-latest") {
-        return 10000;
-    } else if (modelId === "claude-opus-4.1-latest") {
-        return 10000;
-    } else if (modelId === "claude-sonnet-4-latest") {
-        return 10000;
-    } else if (modelId === "claude-sonnet-4-5-20250929") {
-        return 10000;
+    const modelConfig = ANTHROPIC_MODELS.find(
+        (m) => m.inputModelName === modelId,
+    );
+    if (!modelConfig) {
+        throw new Error(`Unsupported model: ${modelId}`);
     }
-
-    throw new Error(`Unsupported model: ${modelId}`);
+    return modelConfig.maxTokens;
 };
 
 /**
