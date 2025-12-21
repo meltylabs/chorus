@@ -2485,5 +2485,27 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     ('system', 'anthropic::claude-opus-4-5-20251101', 'anthropic::claude-opus-4-5-20251101', 'Claude Opus 4.5', '', 0, '2025-10-15 00:00:00');
             "#,
         },
+        Migration {
+            version: 133,
+            description: "add gemini-3-flash-preview and gemini-3-pro-preview models",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Add Gemini 3 Flash Preview model
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('google::gemini-3-flash-preview', 'Gemini 3 Flash (Preview)', 1, '["text", "image", "webpage", "pdf"]');
+
+                -- Add Gemini 3 Flash Preview model config
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default) VALUES
+                    ('system', 'google::gemini-3-flash-preview', 'google::gemini-3-flash-preview', 'Gemini 3 Flash (Preview)', '', 0);
+
+                -- Add Gemini 3 Pro Preview model
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('google::gemini-3-pro-preview', 'Gemini 3 Pro (Preview)', 1, '["text", "image", "webpage", "pdf"]');
+
+                -- Add Gemini 3 Pro Preview model config
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default) VALUES
+                    ('system', 'google::gemini-3-pro-preview', 'google::gemini-3-pro-preview', 'Gemini 3 Pro (Preview)', '', 0);
+            "#,
+        },
     ];
 }

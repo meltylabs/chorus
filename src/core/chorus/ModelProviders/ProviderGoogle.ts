@@ -36,6 +36,8 @@ function getGoogleModelName(modelName: string): string | undefined {
             "gemini-2.0-flash",
             "gemini-2.5-pro-preview-03-25",
             "gemini-2.5-flash",
+            "gemini-3-flash-preview",
+            "gemini-3-pro-preview",
         ].includes(modelName)
     ) {
         // allowed model names
