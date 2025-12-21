@@ -1233,9 +1233,10 @@ export function useStreamMessagePart() {
                             params.push(costUsd);
                         }
 
-                        // Add WHERE clause parameters
+                        // Add WHERE clause parameters (increment both for consistency, even though
+                        // paramIndex isn't used after this - makes the code more obviously correct)
                         const messageIdParamIndex = paramIndex++;
-                        const streamingTokenParamIndex = paramIndex;
+                        const streamingTokenParamIndex = paramIndex++;
                         params.push(messageId, streamingToken);
 
                         await db.execute(
