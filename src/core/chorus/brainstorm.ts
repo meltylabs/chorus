@@ -35,24 +35,13 @@ export const BRAINSTORMER_NAMES: {
         shortName: "Claude",
         provider: "anthropic",
     },
-    "google::gemini-2.0-flash-thinking-exp": {
-        longName: "Google Gemini 2.0 Flash Thinking",
-        shortName: "Gemini",
-        provider: "google",
+    "anthropic::claude-sonnet-4-5-20250929": {
+        longName: "Claude Sonnet 4.5",
+        shortName: "Claude",
+        provider: "anthropic",
     },
-    "openai::o3-mini": {
-        longName: "OpenAI o3-mini",
-        shortName: "o3",
-        provider: "openai",
-    },
-    // "perplexity::sonar-pro": {
-    //     longName: "Perplexity Sonar Pro",
-    //     shortName: "Perplexity",
-    //     provider: "perplexity",
-    // },
 };
 
 export const BRAINSTORMERS: (keyof typeof BRAINSTORMER_NAMES)[] = [
     "2b1c042c-82f8-4913-9cee-03ed71361f03",
-    "google::gemini-2.0-flash-thinking-exp",
 ];

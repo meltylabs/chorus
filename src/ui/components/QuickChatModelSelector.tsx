@@ -56,8 +56,8 @@ export function QuickChatModelSelector({
             // Get the provider for this model
             const provider = getProviderName(model.modelId);
 
-            // Local models (ollama, lmstudio) don't require API keys
-            if (provider === "ollama" || provider === "lmstudio") {
+            // Claude Code uses local CLI authentication
+            if (provider === "claude-code") {
                 return true;
             }
 

@@ -1,5 +1,4 @@
 import { fetch } from "@tauri-apps/plugin-http";
-import OpenAI from "openai";
 import { ApiKeys } from "./Models";
 
 type FetchOptions = {
@@ -61,70 +60,15 @@ export class WebTools {
     }
 
     static async search(
-        query: string,
-        apiKeys: ApiKeys,
+        _query: string,
+        _apiKeys: ApiKeys,
     ): Promise<SearchResult> {
-        try {
-            if (!apiKeys.perplexity) {
-                return {
-                    content:
-                        "<web_search_system_message>Please add your Perplexity API key in Settings to use web search.</web_search_system_message>",
-                    error: "Perplexity API key not configured",
-                };
-            }
-
-            const client = new OpenAI({
-                baseURL: "https://api.perplexity.ai",
-                apiKey: apiKeys.perplexity,
-                defaultHeaders: {
-                    "Content-Type": "application/json",
-                },
-                dangerouslyAllowBrowser: true,
-            });
-
-            const completion = await client.chat.completions.create({
-                model: "sonar",
-                messages: [
-                    {
-                        role: "system",
-                        content:
-                            "Search the web for information about the user's query. Provide relevant search results with links to sources.",
-                    },
-                    {
-                        role: "user",
-                        content: query,
-                    },
-                ],
-                stream: false,
-            });
-
-            const content = completion.choices[0]?.message?.content || "";
-
-            // Extract citations if they exist
-            // Perplexity returns citations in the completion object
-            const completionWithCitations =
-                completion as OpenAI.ChatCompletion & {
-                    citations?: string[];
-                };
-            const citations = completionWithCitations.citations;
-            let finalContent = content;
-
-            if (citations && citations.length > 0) {
-                const sources = citations
-                    .map((url, i) => `${i + 1}. [${url}](${url})`)
-                    .join("\n");
-                finalContent += "\n\nSources:\n" + sources;
-            }
-
-            return {
-                content: finalContent,
-            };
-        } catch (error) {
-            return {
-                content: `<web_search_system_message>Error searching the web: ${getErrorMessage(error)}</web_search_system_message>`,
-                error: getErrorMessage(error),
-            };
-        }
+        // Web search is not currently available
+        return {
+            content:
+                "<web_search_system_message>Web search is not currently available.</web_search_system_message>",
+            error: "Web search is not currently available",
+        };
     }
 
     static async fetchWebpage(

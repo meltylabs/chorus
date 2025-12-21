@@ -279,63 +279,20 @@ export function useSelectedModelConfigQuickChat() {
     return useQuery(modelConfigQueries.quickChat());
 }
 
-export function useRefreshOpenRouterModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshOpenRouterModels"] as const,
-        mutationFn: async () => {
-            await Models.downloadOpenRouterModels(db);
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
-export function useRefreshOllamaModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshOllamaModels"] as const,
-        mutationFn: async () => {
-            await Models.downloadOllamaModels(db);
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
-export function useRefreshLMStudioModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshLMStudioModels"] as const,
-        mutationFn: async () => {
-            await Models.downloadLMStudioModels(db);
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
+/**
+ * @deprecated No longer needed - we only support built-in Anthropic models
+ */
 export function useRefreshModels() {
-    const refreshOpenRouterModels = useRefreshOpenRouterModels();
-    const refreshOllamaModels = useRefreshOllamaModels();
-    const refreshLMStudioModels = useRefreshLMStudioModels();
+    const queryClient = useQueryClient();
     return useMutation({
         mutationKey: ["refreshAllModels"] as const,
         mutationFn: async () => {
-            await Promise.all([
-                refreshOpenRouterModels.mutateAsync(),
-                refreshOllamaModels.mutateAsync(),
-                refreshLMStudioModels.mutateAsync(),
-            ]);
+            // No external models to refresh - we only support Anthropic now
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
         },
     });
 }

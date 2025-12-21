@@ -5,18 +5,10 @@
 //   on top of the default models.
 // - Every model comes with a default config that shares its id and has no system prompt.
 
-import { ProviderOpenAI } from "./ModelProviders/ProviderOpenAI";
 import { ProviderAnthropic } from "./ModelProviders/ProviderAnthropic";
-import { ProviderOpenRouter } from "./ModelProviders/ProviderOpenRouter";
-import { ProviderPerplexity } from "./ModelProviders/ProviderPerplexity";
 import { IProvider } from "./ModelProviders/IProvider";
 import Database from "@tauri-apps/plugin-sql";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { ProviderGoogle } from "./ModelProviders/ProviderGoogle";
-import { ollamaClient } from "./OllamaClient";
-import { ProviderOllama } from "./ModelProviders/ProviderOllama";
-import { ProviderLMStudio } from "./ModelProviders/ProviderLMStudio";
-import { ProviderGrok } from "./ModelProviders/ProviderGrok";
 import { ProviderClaudeCode } from "./ModelProviders/ProviderClaudeCode";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
@@ -153,11 +145,6 @@ export function llmMessageToString(message: LLMMessage): string {
 
 export type ApiKeys = {
     anthropic?: string;
-    openai?: string;
-    perplexity?: string;
-    openrouter?: string;
-    google?: string;
-    grok?: string;
 };
 
 export type Model = {
@@ -222,31 +209,12 @@ export type StreamResponseParams = {
 /// Model resolution
 /// ------------------------------------------------------------------------------------------------
 
-export type ProviderName =
-    | "anthropic"
-    | "openai"
-    | "google"
-    | "perplexity"
-    | "openrouter"
-    | "ollama"
-    | "lmstudio"
-    | "grok"
-    | "meta"
-    | "claude-code";
+export type ProviderName = "anthropic" | "claude-code";
 
 /**
  * Returns a human readable label for the provider
- * This is necessary since meta models go through openrouter
- * But users will want to search by "Meta" in the UI
  */
 export function getProviderLabel(modelId: string): string {
-    const providerParts = modelId.split("::");
-
-    // Expected openrouter ID format is "openrouter::meta-llama/llama-4-scout"
-    if (providerParts.length > 1 && providerParts[0] === "openrouter") {
-        const providerLabel = providerParts[1].split("/")[0];
-        if (providerLabel) return providerLabel;
-    }
     return getProviderName(modelId);
 }
 
@@ -270,22 +238,8 @@ export function getProviderName(modelId: string): ProviderName {
 
 function getProvider(providerName: string): IProvider {
     switch (providerName) {
-        case "openai":
-            return new ProviderOpenAI();
         case "anthropic":
             return new ProviderAnthropic();
-        case "google":
-            return new ProviderGoogle();
-        case "openrouter":
-            return new ProviderOpenRouter();
-        case "perplexity":
-            return new ProviderPerplexity();
-        case "ollama":
-            return new ProviderOllama();
-        case "lmstudio":
-            return new ProviderLMStudio();
-        case "grok":
-            return new ProviderGrok();
         case "claude-code":
             return new ProviderClaudeCode();
         default:
@@ -336,141 +290,13 @@ export async function saveModelAndDefaultConfig(
 }
 
 /**
- * Downloads models from external sources to refresh the database.
+ * @deprecated This function is no longer needed as we only support Anthropic models.
  */
 export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
-    db: Database,
+    _db: Database,
 ): Promise<number> {
-    await downloadOpenRouterModels(db);
-    await downloadOllamaModels(db);
-    await downloadLMStudioModels(db);
+    // No external models to download - we only support Anthropic now
     return 0;
-}
-
-/**
- * Downloads models from OpenRouter to refresh the database.
- */
-export async function downloadOpenRouterModels(db: Database): Promise<number> {
-    const response = await fetch("https://openrouter.ai/api/v1/models");
-    if (!response.ok) {
-        console.error("Failed to fetch OpenRouter models");
-        return 0;
-    }
-    const { data: openRouterModels } = (await response.json()) as {
-        data: {
-            id: string;
-            name: string;
-            architecture?: {
-                input_modalities?: string[];
-            };
-        }[];
-    };
-
-    await db.execute(
-        "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openrouter::%'",
-    );
-
-    await Promise.all(
-        openRouterModels.map((model) => {
-            // Check if the model supports images based on API metadata
-            // Use Array.isArray check to ensure input_modalities is an array before calling includes
-            const supportsImages =
-                Array.isArray(model.architecture?.input_modalities) &&
-                model.architecture.input_modalities.includes("image");
-
-            return saveModelAndDefaultConfig(
-                db,
-                {
-                    id: `openrouter::${model.id}`,
-                    displayName: `${model.name}`,
-                    supportedAttachmentTypes: supportsImages
-                        ? ["text", "image", "webpage"]
-                        : ["text", "webpage"],
-                    isEnabled: true,
-                    isInternal: false,
-                },
-                `${model.name}`,
-            );
-        }),
-    );
-
-    return openRouterModels.length;
-}
-
-/**
- * Downloads models from Ollama to refresh the database.
- */
-export async function downloadOllamaModels(db: Database): Promise<void> {
-    // first, disable all ollama models
-    await db.execute(
-        "UPDATE models SET is_enabled = 0 WHERE id LIKE 'ollama::%'",
-    );
-
-    // health check
-    const health = await ollamaClient.isHealthy();
-    if (!health) {
-        return;
-    }
-
-    const { models } = await ollamaClient.listModels();
-
-    // Then add/update models from Ollama
-    for (const model of models) {
-        await saveModelAndDefaultConfig(
-            db,
-            {
-                id: `ollama::${model.name}`,
-                displayName: `${model.name} (Ollama)`,
-                supportedAttachmentTypes: ["text", "webpage"], // Ollama models currently only support text and webpage
-                isEnabled: true,
-                isInternal: false,
-            },
-            `${model.name} (Ollama)`,
-        );
-    }
-}
-
-/**
- * Downloads models from LM Studio to refresh the database.
- */
-export async function downloadLMStudioModels(db: Database): Promise<void> {
-    try {
-        // Check if LM Studio is accessible
-        // First, disable all existing LM Studio models
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'lmstudio::%'",
-        );
-
-        const response = await fetch("http://localhost:1234/v1/models");
-        if (!response.ok) {
-            return;
-        }
-
-        const { data: models } = (await response.json()) as {
-            data: { id: string }[];
-        };
-
-        // Then add/update models from LM Studio
-        for (const model of models) {
-            await saveModelAndDefaultConfig(
-                db,
-                {
-                    id: `lmstudio::${model.id}`,
-                    displayName: `${model.id} (LM Studio)`,
-                    supportedAttachmentTypes: ["text", "webpage"], // LM Studio models currently support text and webpage
-                    isEnabled: true,
-                    isInternal: false,
-                },
-                `${model.id} (LM Studio)`,
-            );
-        }
-    } catch (error) {
-        // If there's an error (e.g., LM Studio is not running), disable all LM Studio models
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'lmstudio::%'",
-        );
-        throw error;
-    }
 }
 
 /// ------------------------------------------------------------------------------------------------
@@ -567,18 +393,9 @@ function getErrorMessage(error: unknown): string {
 }
 
 // Provider-specific context limit error messages
-// this is pretty hacky, but works for now - we just take an easily identifiable substring from each provider's error message
 const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     anthropic: "prompt is too long",
-    openai: "context window",
-    google: "token count",
-    grok: "maximum prompt length",
-    openrouter: "context length",
-    meta: "context window", // best guess
-    lmstudio: "context window", // best guess
-    perplexity: "context window", // best guess
-    ollama: "context window", // best guess
-    "claude-code": "prompt is too long", // same as anthropic
+    "claude-code": "prompt is too long",
 };
 
 /**

@@ -39,47 +39,19 @@ export const REVIEWERS: {
         provider: ProviderName;
     };
 } = {
-    // NEVER REMOVE FROM THIS LIST
-    "google::gemini-2.0-flash-thinking-exp": {
-        longName: "Google Gemini 2.0 Flash Thinking",
-        shortName: "Gemini",
-        provider: "google",
-    },
-    "google::gemini-2.5-pro-preview-03-25": {
-        longName: "Google Gemini 2.5 Pro (03-25)",
-        shortName: "Gemini",
-        provider: "google",
-    },
-    "google::gemini-2.5-pro-latest": {
-        longName: "Google Gemini 2.5 Pro",
-        shortName: "Gemini",
-        provider: "google",
-    },
-    "openai::o3-mini": {
-        longName: "OpenAI o3-mini",
-        shortName: "o3",
-        provider: "openai",
-    },
+    // Keep old keys for backwards compatibility with existing chats
     "58147fb6-1cd0-4c58-b0f0-2760bc96ef79": {
         longName: "Anthropic Claude 3.7 Sonnet Thinking",
         shortName: "Claude",
         provider: "anthropic",
     },
-    "perplexity::sonar-pro": {
-        longName: "Perplexity Sonar Pro",
-        shortName: "Perplexity",
-        provider: "perplexity",
-    },
-    "openai::o4-mini": {
-        longName: "OpenAI o4-mini",
-        shortName: "o4",
-        provider: "openai",
+    "anthropic::claude-sonnet-4-5-20250929": {
+        longName: "Claude Sonnet 4.5",
+        shortName: "Claude",
+        provider: "anthropic",
     },
 };
 
 export const ACTIVE_REVIEWERS_ORDER: (keyof typeof REVIEWERS)[] = [
-    "google::gemini-2.5-pro-latest",
     "58147fb6-1cd0-4c58-b0f0-2760bc96ef79",
-    "openai::o4-mini",
-    "perplexity::sonar-pro",
 ];

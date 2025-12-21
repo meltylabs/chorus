@@ -10,11 +10,6 @@ export interface CanProceedResult {
  */
 const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
     anthropic: "anthropic",
-    openai: "openai",
-    google: "google",
-    perplexity: "perplexity",
-    openrouter: "openrouter",
-    grok: "grok",
 };
 
 /**
@@ -22,11 +17,6 @@ const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
  */
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
     anthropic: "Anthropic",
-    openai: "OpenAI",
-    google: "Google AI",
-    perplexity: "Perplexity",
-    openrouter: "OpenRouter",
-    grok: "xAI",
 };
 
 /**
@@ -55,13 +45,8 @@ export function canProceedWithProvider(
 ): CanProceedResult {
     const apiKeyField = PROVIDER_TO_API_KEY[providerKey];
 
-    // Local models (ollama, lmstudio) and claude-code don't require API keys
     // claude-code uses the local Claude Code CLI authentication
-    if (
-        providerKey === "ollama" ||
-        providerKey === "lmstudio" ||
-        providerKey === "claude-code"
-    ) {
+    if (providerKey === "claude-code") {
         return { canProceed: true };
     }
 

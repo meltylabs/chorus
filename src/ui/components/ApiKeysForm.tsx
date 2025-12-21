@@ -27,36 +27,6 @@ export default function ApiKeysForm({
             url: "https://console.anthropic.com/settings/keys",
         },
         {
-            id: "openai",
-            name: "OpenAI",
-            placeholder: "sk-...",
-            url: "https://platform.openai.com/api-keys",
-        },
-        {
-            id: "google",
-            name: "Google AI (Gemini)",
-            placeholder: "AI...",
-            url: "https://aistudio.google.com/apikey",
-        },
-        {
-            id: "perplexity",
-            name: "Perplexity",
-            placeholder: "pplx-...",
-            url: "https://www.perplexity.ai/account/api/keys",
-        },
-        {
-            id: "openrouter",
-            name: "OpenRouter",
-            placeholder: "sk-or-...",
-            url: "https://openrouter.ai/keys",
-        },
-        {
-            id: "grok",
-            name: "xAI",
-            placeholder: "xai-...",
-            url: "https://console.x.ai/settings/keys",
-        },
-        {
             id: "firecrawl",
             name: "Firecrawl",
             placeholder: "fc-...",

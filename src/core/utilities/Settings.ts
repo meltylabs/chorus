@@ -9,10 +9,6 @@ export interface Settings {
     autoScrapeUrls: boolean;
     apiKeys?: {
         anthropic?: string;
-        openai?: string;
-        google?: string;
-        perplexity?: string;
-        openrouter?: string;
         firecrawl?: string;
     };
     quickChat?: {
@@ -20,7 +16,6 @@ export interface Settings {
         modelConfigId?: string;
         shortcut?: string;
     };
-    lmStudioBaseUrl?: string;
     cautiousEnter?: boolean;
 }
 

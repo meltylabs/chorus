@@ -2,66 +2,25 @@ import { ApiKeys } from "../../Models";
 import { canProceedWithProvider } from "@core/utilities/ProxyUtils";
 import { ISimpleCompletionProvider } from "./ISimpleCompletionProvider";
 import { SimpleCompletionProviderAnthropic } from "./SimpleCompletionProviderAnthropic";
-import { SimpleCompletionProviderOpenRouter } from "./SimpleCompletionProviderOpenRouter";
-import { SimpleCompletionProviderOpenAI } from "./SimpleCompletionProviderOpenAI";
-import { SimpleCompletionProviderGoogle } from "./SimpleCompletionProviderGoogle";
-
-type ProviderConfig = {
-    name: string;
-    key: keyof ApiKeys;
-    create: (apiKey: string) => ISimpleCompletionProvider;
-};
-
-const PROVIDER_PRECEDENCE: ProviderConfig[] = [
-    {
-        name: "anthropic",
-        key: "anthropic",
-        create: (key) => new SimpleCompletionProviderAnthropic(key),
-    },
-    {
-        name: "openai",
-        key: "openai",
-        create: (key) => new SimpleCompletionProviderOpenAI(key),
-    },
-    {
-        name: "google",
-        key: "google",
-        create: (key) => new SimpleCompletionProviderGoogle(key),
-    },
-    {
-        name: "openrouter",
-        key: "openrouter",
-        create: (key) => new SimpleCompletionProviderOpenRouter(key),
-    },
-];
 
 /**
- * Factory function that selects and returns an appropriate simple completion provider
- * based on available API keys. Follows explicit precedence order.
+ * Factory function that returns the Anthropic simple completion provider.
  *
  * @param apiKeys The API keys object from settings
  * @returns An ISimpleCompletionProvider instance
- * @throws Error if no suitable provider is configured
+ * @throws Error if Anthropic API key is not configured
  */
 export function getSimpleCompletionProvider(
     apiKeys: ApiKeys,
 ): ISimpleCompletionProvider {
-    const reasons: string[] = [];
+    const check = canProceedWithProvider("anthropic", apiKeys);
+    const apiKey = apiKeys.anthropic;
 
-    for (const provider of PROVIDER_PRECEDENCE) {
-        const check = canProceedWithProvider(provider.name, apiKeys);
-        const apiKey = apiKeys[provider.key];
-
-        if (check.canProceed && apiKey) {
-            return provider.create(apiKey);
-        }
-
-        if (!check.canProceed && check.reason) {
-            reasons.push(check.reason);
-        }
+    if (check.canProceed && apiKey) {
+        return new SimpleCompletionProviderAnthropic(apiKey);
     }
 
     throw new Error(
-        `Please add an Anthropic, OpenAI, Google, or OpenRouter API key in Settings to generate chat titles. ${reasons.join(" ")}`,
+        `Please add an Anthropic API key in Settings to generate chat titles. ${check.reason ?? ""}`,
     );
 }

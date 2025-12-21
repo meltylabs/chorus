@@ -23,11 +23,9 @@ import {
 } from "@core/chorus/Models";
 import {
     PlusIcon,
-    RefreshCcwIcon,
     XIcon,
     ArrowBigUpIcon,
     CircleCheckIcon,
-    ChevronUpIcon,
 } from "lucide-react";
 import { ProviderLogo } from "./ui/provider-logo";
 import {
@@ -151,11 +149,6 @@ function ModelGroup({
     const isModelNotAllowed = useCallback(
         (model: ModelConfig) => {
             const provider = getProviderName(model.modelId);
-
-            // Local models (ollama, lmstudio) don't require API keys
-            if (provider === "ollama" || provider === "lmstudio") {
-                return false;
-            }
 
             // Claude Code requires the CLI to be installed
             if (provider === "claude-code") {
@@ -285,7 +278,6 @@ export function ManageModelsBox({
     mode: ModelPickerMode;
     id: string; // Allow any string ID for flexibility
 }) {
-    const { data: apiKeys } = AppMetadataAPI.useApiKeys();
     const navigate = useNavigate();
     const isDialogClosed = useDialogStore(
         (state) => state.activeDialogId === null,
@@ -320,8 +312,6 @@ export function ManageModelsBox({
     const updateSelectedModelConfigsCompare =
         MessageAPI.useUpdateSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
-    const showOpenRouter = AppMetadataAPI.useShowOpenRouter();
-    const setShowOpenRouterMutation = AppMetadataAPI.useSetShowOpenRouter();
     const claudeCodeAvailableQuery = ModelsAPI.useClaudeCodeAvailable();
     const claudeCodeAvailable = claudeCodeAvailableQuery.data?.available ?? false;
 
@@ -335,13 +325,6 @@ export function ManageModelsBox({
     }, [mode, modelConfigs.data]);
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [spinningProviders, setSpinningProviders] = useState<
-        Record<string, boolean>
-    >({
-        ollama: false,
-        lmstudio: false,
-        openrouter: false,
-    });
     const listRef = useRef<HTMLDivElement>(null);
 
     // model configs that will show a check mark
@@ -424,31 +407,7 @@ export function ManageModelsBox({
         checkScroll();
     }, [checkScroll]);
 
-    const refreshLMStudio = ModelsAPI.useRefreshLMStudioModels();
-    const refreshOllama = ModelsAPI.useRefreshOllamaModels();
-    const refreshOpenRouter = ModelsAPI.useRefreshOpenRouterModels();
-
-    const handleRefreshProviders = async (
-        provider: "ollama" | "lmstudio" | "openrouter",
-    ) => {
-        setSpinningProviders((prev) => ({ ...prev, [provider]: true }));
-        try {
-            if (provider === "ollama") {
-                await refreshOllama.mutateAsync();
-            } else if (provider === "lmstudio") {
-                await refreshLMStudio.mutateAsync();
-            } else if (provider === "openrouter") {
-                await refreshOpenRouter.mutateAsync();
-            }
-        } finally {
-            setTimeout(() => {
-                setSpinningProviders((prev) => ({
-                    ...prev,
-                    [provider]: false,
-                }));
-            }, 600);
-        }
-    };
+    // Model refresh hooks removed - only Anthropic models are supported now
 
     // Helper to add a new custom model
     const handleAddCustomModel = useCallback(() => {
@@ -471,47 +430,20 @@ export function ManageModelsBox({
             (m) => m.author === "user",
         );
 
-        const localModels = systemModels.filter((m) => {
-            const provider = getProviderName(m.modelId);
-            return provider === "ollama" || provider === "lmstudio";
-        });
-
-        const openrouterModels = systemModels.filter(
-            (m) => getProviderName(m.modelId) === "openrouter",
-        );
-
         // Claude Code models use the local Claude Code CLI subscription
         const claudeCodeModels = systemModels.filter(
             (m) => getProviderName(m.modelId) === "claude-code",
         );
 
-        // Direct provider models grouped by provider
-        const directProviders = [
-            "anthropic",
-            "openai",
-            "google",
-            "perplexity",
-            "grok",
-        ] as const;
-
-        const directByProvider = Object.fromEntries(
-            directProviders.map((provider) => [
-                provider,
-                filterBySearch(
-                    systemModels.filter(
-                        (m) => getProviderName(m.modelId) === provider,
-                    ),
-                    searchTerms,
-                ),
-            ]),
-        ) as Record<(typeof directProviders)[number], ModelConfig[]>;
+        // Direct provider models - only Anthropic
+        const anthropicModels = systemModels.filter(
+            (m) => getProviderName(m.modelId) === "anthropic",
+        );
 
         return {
             custom: filterBySearch(userModels, searchTerms),
-            local: filterBySearch(localModels, searchTerms),
-            openrouter: filterBySearch(openrouterModels, searchTerms),
             claudeCode: filterBySearch(claudeCodeModels, searchTerms),
-            directByProvider,
+            anthropic: filterBySearch(anthropicModels, searchTerms),
         };
     }, [modelConfigs.data, searchQuery]);
 
@@ -623,110 +555,16 @@ export function ManageModelsBox({
                 <CommandList ref={listRef}>
                     <CommandEmpty>No models found</CommandEmpty>
 
-                    {/* OpenRouter Models - main list */}
-                    {(modelGroups.openrouter.length > 0 ||
-                        searchQuery === "") && (
+                    {/* Anthropic Models */}
+                    {modelGroups.anthropic.length > 0 && (
                         <ModelGroup
-                            heading={
-                                <div className="flex items-center justify-between w-full">
-                                    <span>OpenRouter</span>
-                                    {showOpenRouter && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setShowOpenRouterMutation.mutate(
-                                                    false,
-                                                );
-                                            }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
-                                            title="Hide OpenRouter models"
-                                        >
-                                            <ChevronUpIcon className="w-3 h-3" />
-                                            <span className="text-[10px]">
-                                                Hide
-                                            </span>
-                                        </button>
-                                    )}
-                                </div>
-                            }
-                            models={modelGroups.openrouter}
+                            heading="Anthropic"
+                            models={modelGroups.anthropic}
                             checkedModelConfigIds={checkedModelConfigIds}
                             mode={mode}
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
-                            groupId="openrouter"
-                            refreshButton={
-                                showOpenRouter && (
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                void handleRefreshProviders(
-                                                    "openrouter",
-                                                );
-                                            }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
-                                            title="Refresh OpenRouter models"
-                                        >
-                                            <RefreshCcwIcon
-                                                className={`w-3 h-3 ${
-                                                    spinningProviders[
-                                                        "openrouter"
-                                                    ]
-                                                        ? "animate-spin"
-                                                        : ""
-                                                }`}
-                                            />
-                                            <span className="text-sm">
-                                                Refresh
-                                            </span>
-                                        </button>
-                                    </div>
-                                )
-                            }
-                            emptyState={
-                                !showOpenRouter ? (
-                                    <div className="px-2 mb-4">
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            size="sm"
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                setShowOpenRouterMutation.mutate(
-                                                    true,
-                                                );
-                                            }}
-                                        >
-                                            Show OpenRouter models
-                                        </Button>
-                                    </div>
-                                ) : apiKeys && !apiKeys.openrouter ? (
-                                    <div className="px-2 mb-4 text-sm text-muted-foreground">
-                                        <p className="mb-2">
-                                            OpenRouter models require an API
-                                            key.
-                                        </p>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            size="sm"
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                handleAddApiKey();
-                                            }}
-                                        >
-                                            Add OpenRouter API key in Settings
-                                        </Button>
-                                    </div>
-                                ) : undefined
-                            }
+                            groupId="anthropic"
                         />
                     )}
 
@@ -745,63 +583,6 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="claude-code"
                             claudeCodeAvailable={claudeCodeAvailable}
-                        />
-                    )}
-
-                    {/* Direct Provider Models (Anthropic, OpenAI, Google, etc.) */}
-                    {modelGroups.directByProvider.anthropic.length > 0 && (
-                        <ModelGroup
-                            heading="Anthropic"
-                            models={modelGroups.directByProvider.anthropic}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="anthropic"
-                        />
-                    )}
-                    {modelGroups.directByProvider.openai.length > 0 && (
-                        <ModelGroup
-                            heading="OpenAI"
-                            models={modelGroups.directByProvider.openai}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="openai"
-                        />
-                    )}
-                    {modelGroups.directByProvider.google.length > 0 && (
-                        <ModelGroup
-                            heading="Google"
-                            models={modelGroups.directByProvider.google}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="google"
-                        />
-                    )}
-                    {modelGroups.directByProvider.grok.length > 0 && (
-                        <ModelGroup
-                            heading="Grok"
-                            models={modelGroups.directByProvider.grok}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="grok"
-                        />
-                    )}
-                    {modelGroups.directByProvider.perplexity.length > 0 && (
-                        <ModelGroup
-                            heading="Perplexity"
-                            models={modelGroups.directByProvider.perplexity}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="perplexity"
                         />
                     )}
 
@@ -833,74 +614,6 @@ export function ManageModelsBox({
                         />
                     )}
 
-                    {/* Local Models */}
-                    <ModelGroup
-                        heading="Local"
-                        models={modelGroups.local}
-                        checkedModelConfigIds={checkedModelConfigIds}
-                        mode={mode}
-                        onToggleModelConfig={handleToggleModelConfig}
-                        onAddApiKey={handleAddApiKey}
-                        groupId="local"
-                        refreshButton={
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    void handleRefreshProviders("ollama");
-                                    void handleRefreshProviders("lmstudio");
-                                }}
-                                className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
-                                title="Refresh local models"
-                            >
-                                <RefreshCcwIcon
-                                    className={`w-3 h-3 ${
-                                        spinningProviders["ollama"] ||
-                                        spinningProviders["lmstudio"]
-                                            ? "animate-spin"
-                                            : ""
-                                    }`}
-                                />
-                                <span className="text-sm">Refresh</span>
-                            </button>
-                        }
-                        emptyState={
-                            modelGroups.local.length === 0 ? (
-                                <div className="flex flex-col gap-2 px-2">
-                                    <div className="text-sm text-muted-foreground">
-                                        No local models found. To run local
-                                        models, you must have Ollama or LM
-                                        Studio installed.
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={(
-                                            e: React.MouseEvent<HTMLButtonElement>,
-                                        ) => {
-                                            e.preventDefault();
-                                            void handleRefreshProviders(
-                                                "ollama",
-                                            );
-                                            void handleRefreshProviders(
-                                                "lmstudio",
-                                            );
-                                        }}
-                                        title="Refresh local models"
-                                    >
-                                        Refresh local models
-                                        <RefreshCcwIcon
-                                            className={`w-3 h-3 ml-2 ${
-                                                spinningProviders["ollama"] ||
-                                                spinningProviders["lmstudio"]
-                                                    ? "animate-spin"
-                                                    : ""
-                                            }`}
-                                        />
-                                    </Button>
-                                </div>
-                            ) : undefined
-                        }
-                    />
                 </CommandList>
             </CommandDialog>
         </>
