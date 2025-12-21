@@ -1201,6 +1201,8 @@ export function useStreamMessagePart() {
 
                     if (hasTokens || hasCost) {
                         // Build SET clause dynamically to avoid writing 0 for unknown values
+                        // Use a helper to track the next parameter index (1-based for SQL)
+                        let paramIndex = 1;
                         const setClauses: string[] = [];
                         const params: (number | string)[] = [];
 
@@ -1209,15 +1211,15 @@ export function useStreamMessagePart() {
                             actualCompletionTokens !== undefined
                         ) {
                             setClauses.push(
-                                `prompt_tokens = COALESCE(prompt_tokens, 0) + $${params.length + 1}`,
+                                `prompt_tokens = COALESCE(prompt_tokens, 0) + $${paramIndex++}`,
                             );
                             params.push(actualPromptTokens);
                             setClauses.push(
-                                `completion_tokens = COALESCE(completion_tokens, 0) + $${params.length + 1}`,
+                                `completion_tokens = COALESCE(completion_tokens, 0) + $${paramIndex++}`,
                             );
                             params.push(actualCompletionTokens);
                             setClauses.push(
-                                `total_tokens = COALESCE(total_tokens, 0) + $${params.length + 1}`,
+                                `total_tokens = COALESCE(total_tokens, 0) + $${paramIndex++}`,
                             );
                             params.push(
                                 actualPromptTokens + actualCompletionTokens,
@@ -1226,19 +1228,20 @@ export function useStreamMessagePart() {
 
                         if (costUsd !== undefined) {
                             setClauses.push(
-                                `cost_usd = COALESCE(cost_usd, 0) + $${params.length + 1}`,
+                                `cost_usd = COALESCE(cost_usd, 0) + $${paramIndex++}`,
                             );
                             params.push(costUsd);
                         }
 
+                        // Add WHERE clause parameters
+                        const messageIdParamIndex = paramIndex++;
+                        const streamingTokenParamIndex = paramIndex;
                         params.push(messageId, streamingToken);
-                        const messageIdParam = params.length - 1;
-                        const tokenParam = params.length;
 
                         await db.execute(
                             `UPDATE messages
                             SET ${setClauses.join(", ")}
-                            WHERE id = $${messageIdParam} AND streaming_token = $${tokenParam}`,
+                            WHERE id = $${messageIdParamIndex} AND streaming_token = $${streamingTokenParamIndex}`,
                             params,
                         );
                     }
