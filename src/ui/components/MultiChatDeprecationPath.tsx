@@ -526,7 +526,7 @@ function AIMessageView({
                                 {isQuickChatWindow && (
                                     <div className="flex flex-col gap-2 mt-4">
                                         <p className="text-red-800">
-                                            It's possible that Chorus doesn't
+                                            It's possible that Ripple doesn't
                                             have screenshot permissions, which
                                             is required for vision mode.
                                         </p>
@@ -538,7 +538,7 @@ function AIMessageView({
                                                 );
                                             }}
                                         >
-                                            Allow Chorus to see your screen
+                                            Allow Ripple to see your screen
                                         </Button>
                                     </div>
                                 )}

@@ -9,7 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     const onboardingStep = AppMetadataAPI.useOnboardingStep();
     const setOnboardingStep = AppMetadataAPI.useSetOnboardingStep();
-    const [openRouterKey, setOpenRouterKey] = useState("");
+    const [anthropicKey, setAnthropicKey] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const queryClient = useQueryClient();
 
@@ -18,13 +18,13 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     }, [setOnboardingStep]);
 
     const handleSaveAndComplete = useCallback(async () => {
-        if (openRouterKey.trim()) {
+        if (anthropicKey.trim()) {
             setIsSaving(true);
             const settingsManager = SettingsManager.getInstance();
             const currentSettings = await settingsManager.get();
             const newApiKeys = {
                 ...currentSettings.apiKeys,
-                openrouter: openRouterKey.trim(),
+                anthropic: anthropicKey.trim(),
             };
             await settingsManager.set({
                 ...currentSettings,
@@ -34,7 +34,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
             setIsSaving(false);
         }
         onComplete();
-    }, [openRouterKey, queryClient, onComplete]);
+    }, [anthropicKey, queryClient, onComplete]);
 
     // Allow pressing Enter to continue quickly
     useEffect(() => {
@@ -62,15 +62,15 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                 <div className="text-center space-y-6 max-w-3xl w-full">
                     <div className="space-y-2">
                         <h1 className="text-2xl font-semibold tracking-tight">
-                            Welcome to Chorus
+                            Welcome to Ripple
                         </h1>
                         <p className="text text-muted-foreground pb-6">
-                            All the AI, on your Mac.
+                            AI-powered motion graphics, on your Mac.
                         </p>
                         <img
                             src="https://meltylabs.t3.storage.dev/screenshot_light.png"
                             className="rounded-lg max-w-3xl mx-auto border border-border shadow-sm"
-                            alt="Chorus screenshot"
+                            alt="Ripple screenshot"
                         />
                     </div>
 
@@ -94,31 +94,31 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                         Add an API Key
                     </h1>
                     <p className="text-muted-foreground">
-                        Chorus runs on API keys. We recommend{" "}
+                        Ripple runs on API keys. Get your key from{" "}
                         <a
-                            href="https://openrouter.ai/keys"
+                            href="https://console.anthropic.com/settings/keys"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary underline underline-offset-4"
                         >
-                            OpenRouter
+                            Anthropic Console
                         </a>{" "}
                         to get started.
                     </p>
                 </div>
 
                 <div className="space-y-2 text-left">
-                    <Label htmlFor="openrouter-key">OpenRouter API Key</Label>
+                    <Label htmlFor="anthropic-key">Anthropic API Key</Label>
                     <Input
-                        id="openrouter-key"
+                        id="anthropic-key"
                         type="password"
-                        placeholder="sk-or-..."
-                        value={openRouterKey}
-                        onChange={(e) => setOpenRouterKey(e.target.value)}
+                        placeholder="sk-ant-..."
+                        value={anthropicKey}
+                        onChange={(e) => setAnthropicKey(e.target.value)}
                         autoFocus
                     />
                     <p className="text-xs text-muted-foreground">
-                        You can add more API keys later in Settings.
+                        You can update your API key later in Settings.
                     </p>
                 </div>
 
@@ -128,7 +128,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                         onClick={() => void handleSaveAndComplete()}
                         disabled={isSaving}
                     >
-                        {openRouterKey.trim()
+                        {anthropicKey.trim()
                             ? "Save and continue"
                             : "Skip for now"}{" "}
                         <span className="text-sm">↵</span>

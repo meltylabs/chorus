@@ -10,7 +10,7 @@ const options = {
     api_host: "https://us.i.posthog.com",
 };
 
-// suggested by Chorus
+// suggested by Ripple
 window.addEventListener("unhandledrejection", (event) => {
     console.error("Unhandled promise rejection:", event.reason);
 });

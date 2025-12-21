@@ -897,7 +897,7 @@ function ToolsTab() {
                                     Import MCPs from Claude Desktop. If you've
                                     made changes to your MCPs in Claude Desktop,
                                     you can click this button again to refresh
-                                    your Chorus MCPs.
+                                    your Ripple MCPs.
                                 </TooltipContent>
                             </Tooltip>
                         </div>
@@ -1340,7 +1340,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             <DialogHeader className="sr-only">
                 <DialogTitle>Settings</DialogTitle>
                 <DialogDescription>
-                    Manage your Chorus settings
+                    Manage your Ripple settings
                 </DialogDescription>
             </DialogHeader>
 
@@ -1394,8 +1394,8 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                             </div>
                             <div className="space-y-4">
                                 <p className="text-sm text-muted-foreground">
-                                    Chorus requires you to bring your own API
-                                    keys to use AI models. Add your keys in the
+                                    Ripple requires you to bring your own API
+                                    key to use AI models. Add your key in the
                                     API Keys tab.
                                 </p>
                                 <div className="flex gap-2">
@@ -1831,7 +1831,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                         className="font-mono"
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                        Leave empty to use the default Chorus
+                                        Leave empty to use the default Ripple
                                         proxy. When set, all model requests will
                                         be sent directly to this URL without any
                                         path modifications.

@@ -1,8 +1,8 @@
 {
     "$schema": "https://schema.tauri.app/config/2.0.2",
-    "productName": "Chorus",
-    "version": "0.14.1",
-    "identifier": "sh.chorus.app.dev",
+    "productName": "Ripple",
+    "version": "0.1.0",
+    "identifier": "app.ripple.dev",
     "build": {
         "beforeDevCommand": "pnpm vite:dev",
         "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
         "macOSPrivateApi": true,
         "windows": [
             {
-                "title": "Chorus Dev",
+                "title": "Ripple Dev",
                 "label": "main",
                 "titleBarStyle": "Overlay",
                 "url": "/",
@@ -82,7 +82,7 @@
         },
         "deep-link": {
             "desktop": {
-                "schemes": ["chorus-dev"]
+                "schemes": ["ripple-dev"]
             }
         }
     }

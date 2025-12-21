@@ -1,8 +1,8 @@
 {
     "$schema": "https://schema.tauri.app/config/2.0.2",
-    "productName": "Chorus Nightly",
-    "version": "0.14.1",
-    "identifier": "sh.chorus.app.qa",
+    "productName": "Ripple Nightly",
+    "version": "0.1.0",
+    "identifier": "app.ripple.qa",
     "build": {
         "beforeDevCommand": "pnpm vite:dev",
         "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
         "macOSPrivateApi": true,
         "windows": [
             {
-                "title": "Chorus Nightly",
+                "title": "Ripple Nightly",
                 "label": "main",
                 "titleBarStyle": "Overlay",
                 "url": "/",

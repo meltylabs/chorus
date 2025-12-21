@@ -243,7 +243,7 @@ export function ChatInput({
                 } catch (error) {
                     toast.error("Error capturing screen", {
                         description:
-                            "It's possible that Chorus doesn't have screenshot permissions, which is needed to enable vision mode.",
+                            "It's possible that Ripple doesn't have screenshot permissions, which is needed to enable vision mode.",
                         action: {
                             label: "Open Settings",
                             onClick: () => {
@@ -723,7 +723,7 @@ export function ChatInput({
                         {!isAnimatingToBottom && (
                             <div className="mb-6 text-center">
                                 <h2 className="text-2xl font-medium text-foreground">
-                                    What can Chorus do for you?
+                                    What can Ripple do for you?
                                 </h2>
                             </div>
                         )}

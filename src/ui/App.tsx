@@ -22,6 +22,7 @@ import Settings, {
 } from "./components/Settings";
 import { SidebarProvider } from "./providers/SidebarProvider";
 import { AppSidebar } from "./components/AppSidebar";
+import { PreviewPane } from "./components/PreviewPane";
 import { ThemeProvider } from "@ui/themes/theme-provider";
 import { COMMAND_MENU_DIALOG_ID, CommandMenu } from "./components/CommandMenu";
 import Home from "./components/Home";
@@ -329,7 +330,7 @@ function AppContent() {
                             });
                             toast.success("GitHub successfully connected", {
                                 description:
-                                    "You can now manage repos, code, issues, and PRs from Chorus",
+                                    "You can now manage repos, code, issues, and PRs from Ripple",
                             });
                         }
                     } else if (urlObj.hostname === "chat") {
@@ -668,7 +669,7 @@ function AppContent() {
                 const info = `Version: ${appVersion}\nPlatform: ${plat}\nArchitecture: ${architecture}\nOS Version: ${osVer}\n\n`;
 
                 const shouldCopy = await confirm(info, {
-                    title: "Chorus",
+                    title: "Ripple",
                     okLabel: "Copy",
                     cancelLabel: "Close",
                 });
@@ -795,25 +796,11 @@ function AppContent() {
                         </button>
 
                         <AlertTitle className="flex items-center gap-2">
-                            Open Source
+                            Welcome to Ripple
                         </AlertTitle>
                         <AlertDescription>
-                            Chorus is now Open Source! It now runs on your own
-                            API keys. Add them in Settings → API Keys.
-                            <br />
-                            <br />
-                            <div className="gap-4 mt-2">
-                                <button
-                                    className="text-sm text-muted-foreground hover:text-foreground"
-                                    onClick={() =>
-                                        void openUrl(
-                                            "https://github.com/meltylabs/chorus",
-                                        )
-                                    }
-                                >
-                                    Learn more
-                                </button>
-                            </div>
+                            Create stunning motion graphics with AI. Add your
+                            Anthropic API key in Settings to get started.
                         </AlertDescription>
                     </Alert>
                 </div>
@@ -823,12 +810,10 @@ function AppContent() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            You're on the waitlist!
+                            Welcome to Ripple
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Thanks for signing up! You've been added to our
-                            waitlist. We'll email you as soon as your account is
-                            activated with full access to Chorus.
+                            AI-powered motion graphics at your fingertips.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                 </AlertDialogContent>
@@ -895,6 +880,13 @@ function AppContent() {
                             element={<ProjectView />}
                         />
                     </Routes>
+
+                    {/* Preview pane - only shown on chat routes */}
+                    {!isQuickChatWindow &&
+                        location.pathname.startsWith("/chat/") && (
+                            <PreviewPane />
+                        )}
+
                     {!isQuickChatWindow && (
                         <Settings tab={defaultSettingsTab || "general"} />
                     )}
@@ -1045,7 +1037,7 @@ function App() {
                                         Move to Applications Folder
                                     </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Looks like Chorus isn't in your
+                                        Looks like Ripple isn't in your
                                         Applications folder! This means you
                                         won't be able to get updates.
                                     </AlertDialogDescription>
