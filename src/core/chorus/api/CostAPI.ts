@@ -58,9 +58,11 @@ export async function fetchOpenRouterCost(
 
         return {
             cost: data.data.total_cost,
-            promptTokens: data.data.native_tokens_prompt ?? data.data.tokens_prompt,
+            promptTokens:
+                data.data.native_tokens_prompt ?? data.data.tokens_prompt,
             completionTokens:
-                data.data.native_tokens_completion ?? data.data.tokens_completion,
+                data.data.native_tokens_completion ??
+                data.data.tokens_completion,
         };
     } catch (error) {
         console.error("Error fetching OpenRouter generation cost:", error);

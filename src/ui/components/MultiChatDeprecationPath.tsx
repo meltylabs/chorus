@@ -502,9 +502,7 @@ function AIMessageView({
 
                 <div className="relative">
                     <div
-                        className={`${
-                            message.selected ? "" : "overflow-y-auto"
-                        }
+                        className={`${message.selected ? "" : "overflow-y-auto"}
                     ${isQuickChatWindow ? "py-2.5 border !border-border-accent max-w-full inline-block break-words px-3.5 rounded-xl" : "p-4 pb-6"}`}
                     >
                         {message.text ? (

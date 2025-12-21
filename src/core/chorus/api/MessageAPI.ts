@@ -1144,7 +1144,8 @@ export function useStreamMessagePart() {
                         costUsd = openRouterCost.cost;
                         // Use native token counts from OpenRouter
                         actualPromptTokens = openRouterCost.promptTokens;
-                        actualCompletionTokens = openRouterCost.completionTokens;
+                        actualCompletionTokens =
+                            openRouterCost.completionTokens;
                     }
                 }
 
@@ -1464,7 +1465,8 @@ export function useStreamMessageLegacy() {
                         costUsd = openRouterCost.cost;
                         // Use native token counts from OpenRouter
                         actualPromptTokens = openRouterCost.promptTokens;
-                        actualCompletionTokens = openRouterCost.completionTokens;
+                        actualCompletionTokens =
+                            openRouterCost.completionTokens;
                     }
                 }
 
@@ -1490,7 +1492,7 @@ export function useStreamMessageLegacy() {
                     actualPromptTokens !== undefined &&
                     actualCompletionTokens !== undefined
                         ? actualPromptTokens + actualCompletionTokens
-                        : usageData?.total_tokens ?? null;
+                        : (usageData?.total_tokens ?? null);
 
                 await db.execute(
                     `UPDATE messages

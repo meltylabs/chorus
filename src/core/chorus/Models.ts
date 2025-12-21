@@ -325,7 +325,10 @@ export async function saveModelAndDefaultConfig(
     db: Database,
     model: Model,
     modelConfigDisplayName: string,
-    pricing?: { promptPricePerToken?: number; completionPricePerToken?: number },
+    pricing?: {
+        promptPricePerToken?: number;
+        completionPricePerToken?: number;
+    },
 ): Promise<void> {
     // insert or replace is important. this way I can have a refresh where Ollama / LM studio models are set to disabled if they're not running, and enabled if they are
     await db.execute(
