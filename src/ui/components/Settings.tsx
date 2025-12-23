@@ -1129,6 +1129,7 @@ interface Settings {
     sansFont?: string;
     monoFont?: string;
     autoConvertLongText: boolean;
+    showCost: boolean;
     quickChat: QuickChatSettings;
     lmStudioBaseUrl?: string;
     autoScrapeUrls: boolean;
@@ -1143,6 +1144,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
     const [autoConvertLongText, setAutoConvertLongText] = useState(true);
     const [autoScrapeUrls, setAutoScrapeUrls] = useState(true);
     const [cautiousEnter, setCautiousEnter] = useState(false);
+    const [showCost, setShowCost] = useState(false);
     const { db } = useDatabase();
     const [searchParams] = useSearchParams();
     const defaultTab =
@@ -1231,6 +1233,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             setAutoConvertLongText(settings.autoConvertLongText ?? true);
             setAutoScrapeUrls(settings.autoScrapeUrls ?? true);
             setCautiousEnter(settings.cautiousEnter ?? false);
+            setShowCost(settings.showCost ?? false);
             setLmStudioBaseUrl(
                 settings.lmStudioBaseUrl ?? "http://localhost:1234/v1",
             );
@@ -1298,6 +1301,15 @@ export default function Settings({ tab = "general" }: SettingsProps) {
         // Invalidate app metadata query to update all components using it
         await queryClient.invalidateQueries({
             queryKey: ["appMetadata"],
+        });
+    };
+
+    const handleShowCostChange = async (enabled: boolean) => {
+        setShowCost(enabled);
+        const currentSettings = await settingsManager.get();
+        void settingsManager.set({
+            ...currentSettings,
+            showCost: enabled,
         });
     };
 
@@ -1600,6 +1612,24 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                             void handleCautiousEnterChange(
                                                 enabled,
                                             )
+                                        }
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2">
+                                    <div className="space-y-0.5">
+                                        <div className="font-semibold ">
+                                            Show message cost
+                                        </div>
+                                        <div className=" ">
+                                            Display cost estimates alongside
+                                            messages and in the sidebar
+                                        </div>
+                                    </div>
+                                    <Switch
+                                        checked={showCost}
+                                        onCheckedChange={(enabled) =>
+                                            void handleShowCostChange(enabled)
                                         }
                                     />
                                 </div>

@@ -200,6 +200,17 @@ export type ModelConfig = {
     isDefault: boolean;
     budgetTokens?: number; // optional token budget for thinking mode
     reasoningEffort?: "low" | "medium" | "high";
+
+    // pricing (from models table)
+    promptPricePerToken?: number;
+    completionPricePerToken?: number;
+};
+
+export type UsageData = {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    generation_id?: string; // OpenRouter generation ID for fetching actual costs
 };
 
 export type StreamResponseParams = {
@@ -211,6 +222,7 @@ export type StreamResponseParams = {
     onComplete: (
         finalMessage?: string,
         toolCalls?: UserToolCall[],
+        usageData?: UsageData,
     ) => Promise<void>;
     onError: (errorMessage: string) => void;
     additionalHeaders?: Record<string, string>;
@@ -313,16 +325,22 @@ export async function saveModelAndDefaultConfig(
     db: Database,
     model: Model,
     modelConfigDisplayName: string,
+    pricing?: {
+        promptPricePerToken?: number;
+        completionPricePerToken?: number;
+    },
 ): Promise<void> {
     // insert or replace is important. this way I can have a refresh where Ollama / LM studio models are set to disabled if they're not running, and enabled if they are
     await db.execute(
-        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal) VALUES (?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
             model.id,
             model.displayName,
             model.isEnabled ? 1 : 0,
             model.supportedAttachmentTypes,
             model.isInternal ? 1 : 0,
+            pricing?.promptPricePerToken ?? null,
+            pricing?.completionPricePerToken ?? null,
         ],
     );
     await db.execute(
@@ -359,6 +377,12 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
             architecture?: {
                 input_modalities?: string[];
             };
+            pricing: {
+                prompt: string;
+                completion: string;
+                request?: string;
+                image?: string;
+            };
         }[];
     };
 
@@ -374,6 +398,15 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
                 Array.isArray(model.architecture?.input_modalities) &&
                 model.architecture.input_modalities.includes("image");
 
+            // Parse and validate pricing data
+            const promptPrice = parseFloat(model.pricing.prompt);
+            const completionPrice = parseFloat(model.pricing.completion);
+            const hasPricing =
+                !isNaN(promptPrice) &&
+                !isNaN(completionPrice) &&
+                isFinite(promptPrice) &&
+                isFinite(completionPrice);
+
             return saveModelAndDefaultConfig(
                 db,
                 {
@@ -386,6 +419,12 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
                     isInternal: false,
                 },
                 `${model.name}`,
+                hasPricing
+                    ? {
+                          promptPricePerToken: promptPrice,
+                          completionPricePerToken: completionPrice,
+                      }
+                    : undefined,
             );
         }),
     );

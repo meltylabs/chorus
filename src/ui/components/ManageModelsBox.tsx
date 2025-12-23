@@ -61,6 +61,29 @@ const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
     });
 };
 
+// Helper function to format pricing for display (per million tokens)
+const formatPricing = (model: ModelConfig): string | null => {
+    if (
+        model.promptPricePerToken === undefined ||
+        model.completionPricePerToken === undefined
+    ) {
+        return null;
+    }
+
+    const inputPricePerMillion = model.promptPricePerToken * 1_000_000;
+    const outputPricePerMillion = model.completionPricePerToken * 1_000_000;
+
+    // Format with appropriate decimal places
+    const formatPrice = (price: number): string => {
+        if (price >= 100) return price.toFixed(0);
+        if (price >= 10) return price.toFixed(1);
+        if (price >= 1) return price.toFixed(2);
+        return price.toFixed(3);
+    };
+
+    return `$${formatPrice(inputPricePerMillion)}/$${formatPrice(outputPricePerMillion)} per 1M tokens`;
+};
+
 // Helper function to check if a model is still considered "new"
 const isNewModel = (newUntil: string | undefined): boolean => {
     if (!newUntil) return false;
@@ -215,6 +238,11 @@ function ModelGroup({
                                             </Badge>
                                         )}
                                     </div>
+                                    {formatPricing(m) && (
+                                        <p className="mt-0.5 text-xs text-muted-foreground">
+                                            {formatPricing(m)}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">

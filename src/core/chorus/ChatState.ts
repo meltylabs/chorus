@@ -44,6 +44,11 @@ export interface Message {
     parts: MessagePart[];
     replyChatId: string | undefined;
     branchedFromId: string | undefined;
+    // Token usage and cost
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    costUsd?: number;
 }
 
 export interface MessagePart {

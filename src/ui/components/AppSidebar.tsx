@@ -56,6 +56,7 @@ import {
 } from "./ui/dialog";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import { formatCost } from "@core/chorus/api/CostAPI";
 import RetroSpinner from "./ui/retro-spinner";
 import FeedbackButton from "./FeedbackButton";
 import { SpeakerLoudIcon } from "@radix-ui/react-icons";
@@ -262,6 +263,7 @@ function Project({ projectId }: { projectId: string }) {
     const toggleProjectIsCollapsed = useToggleProjectIsCollapsed();
     const projectsQuery = useQuery(projectQueries.list());
     const chatsQuery = useQuery(chatQueries.list());
+    const settings = useSettings();
     const location = useLocation();
     const currentChatId = location.pathname.split("/").pop()!; // well this is super hacky
     const projectIsActive = location.pathname.includes(projectId);
@@ -287,6 +289,7 @@ function Project({ projectId }: { projectId: string }) {
     const projects = projectsQuery.data;
     const project = projects.find((p) => p.id === projectId)!;
     const isCollapsed = project?.isCollapsed || false;
+    const showCost = settings?.showCost ?? false;
 
     const handleToggleCollapse = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -343,11 +346,18 @@ function Project({ projectId }: { projectId: string }) {
                             </div>
                         </CollapsibleTrigger>
                         <h2
-                            className="truncate text-base pr-3"
+                            className="truncate text-base"
                             onClick={handleProjectClick}
                         >
                             {projectDisplayName(project?.name)}
                         </h2>
+                        {showCost &&
+                            project?.totalCostUsd !== undefined &&
+                            project.totalCostUsd > 0 && (
+                                <span className="ml-auto pr-8 text-xs text-muted-foreground font-normal flex-shrink-0">
+                                    {formatCost(project.totalCostUsd)}
+                                </span>
+                            )}
                     </span>
 
                     {/* Gradient overlay that appears when hovering */}
@@ -801,6 +811,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
     );
     const deleteConfirmButtonRef = useRef<HTMLButtonElement>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const settings = useSettings();
 
     // no good very bad, but unfortunately necessary -- see https://github.com/remix-run/react-router/issues/7634#issuecomment-2184999343
     const navigate = useRef(useNavigate());
@@ -870,6 +881,7 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
         },
         [chat.id, renameChatMutateAsync],
     );
+    const showCost = settings?.showCost ?? false;
 
     return (
         <ChatListItemView
@@ -888,6 +900,8 @@ function ChatListItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
             deleteIsPending={deleteChatIsPending}
             navigate={navigate}
             deleteConfirmButtonRef={deleteConfirmButtonRef}
+            chatCost={chat.totalCostUsd}
+            showCost={showCost}
         />
     );
 }
@@ -908,6 +922,8 @@ type ChatListItemViewProps = {
     deleteIsPending: boolean;
     navigate: MutableRefObject<NavigateFunction>;
     deleteConfirmButtonRef: MutableRefObject<HTMLButtonElement | null>;
+    chatCost?: number;
+    showCost: boolean;
 };
 
 const ChatListItemView = React.memo(
@@ -927,6 +943,8 @@ const ChatListItemView = React.memo(
         deleteIsPending,
         navigate,
         deleteConfirmButtonRef,
+        chatCost,
+        showCost,
     }: ChatListItemViewProps) => {
         return (
             <div
@@ -989,6 +1007,13 @@ const ChatListItemView = React.memo(
                                 onStopEdit={onStopEdit}
                             />
                             <ChatLoadingIndicator chatId={chatId} />
+                            {showCost &&
+                                chatCost !== undefined &&
+                                chatCost > 0 && (
+                                    <span className="ml-auto pl-2 text-xs text-muted-foreground flex-shrink-0">
+                                        {formatCost(chatCost)}
+                                    </span>
+                                )}
                         </div>
 
                         {/* Gradient overlay that appears when hovering */}

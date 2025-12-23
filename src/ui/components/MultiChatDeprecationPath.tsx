@@ -48,6 +48,7 @@ import { Metrics } from "./Metrics";
 import * as Reviews from "@core/chorus/reviews";
 import * as Brainstorms from "@core/chorus/brainstorm";
 import Markdown from "react-markdown";
+import { MessageCostDisplay } from "./MessageCostDisplay";
 import { Skeleton } from "./ui/skeleton";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useWaitForAppMetadata } from "@ui/hooks/useWaitForAppMetadata";
@@ -499,11 +500,9 @@ function AIMessageView({
                     </div>
                 </div>
 
-                <div>
+                <div className="relative">
                     <div
-                        className={`${
-                            message.selected ? "" : "relative overflow-y-auto"
-                        }
+                        className={`${message.selected ? "" : "overflow-y-auto"}
                     ${isQuickChatWindow ? "py-2.5 border !border-border-accent max-w-full inline-block break-words px-3.5 rounded-xl" : "p-4 pb-6"}`}
                     >
                         {message.text ? (
@@ -552,6 +551,13 @@ function AIMessageView({
                             isStreaming={message.state === "streaming"}
                         />
                     )}
+                    <MessageCostDisplay
+                        costUsd={message.costUsd}
+                        promptTokens={message.promptTokens}
+                        completionTokens={message.completionTokens}
+                        isStreaming={message.state === "streaming"}
+                        isQuickChatWindow={isQuickChatWindow ?? false}
+                    />
                 </div>
             </div>
 

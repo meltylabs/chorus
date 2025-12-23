@@ -38,6 +38,9 @@ export type Chat = {
     gcPrototype: boolean;
 
     pinned: boolean; // deprecated
+
+    // Cost tracking
+    totalCostUsd?: number;
 };
 
 type ChatDBRow = {
@@ -55,6 +58,7 @@ type ChatDBRow = {
     project_context_summary_is_stale: number;
     reply_to_id: string | null;
     gc_prototype_chat: number;
+    total_cost_usd: number | null;
 };
 
 function readChat(row: ChatDBRow): Chat {
@@ -74,13 +78,14 @@ function readChat(row: ChatDBRow): Chat {
             row.project_context_summary_is_stale === 1,
         replyToId: row.reply_to_id,
         gcPrototype: row.gc_prototype_chat === 1,
+        totalCostUsd: row.total_cost_usd ?? undefined,
     };
 }
 
 export async function fetchChat(chatId: string): Promise<Chat> {
     const rows = await db.select<ChatDBRow[]>(
         `SELECT id, title, quick_chat, pinned, project_id, updated_at, created_at, summary, is_new_chat,
-        parent_chat_id, project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat
+        parent_chat_id, project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat, total_cost_usd
         FROM chats
         WHERE id = $1;`,
         [chatId],
@@ -95,7 +100,7 @@ export async function fetchChats(): Promise<Chat[]> {
     return await db
         .select<ChatDBRow[]>(
             `SELECT id, title, quick_chat, pinned, project_id, updated_at, created_at, summary, is_new_chat, parent_chat_id,
-            project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat
+            project_context_summary, project_context_summary_is_stale, reply_to_id, gc_prototype_chat, total_cost_usd
             FROM chats
             WHERE reply_to_id IS NULL
             ORDER BY updated_at DESC`,

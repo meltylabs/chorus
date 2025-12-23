@@ -7,6 +7,7 @@ export interface Settings {
     monoFont: string;
     autoConvertLongText: boolean;
     autoScrapeUrls: boolean;
+    showCost: boolean;
     apiKeys?: {
         anthropic?: string;
         openai?: string;
@@ -47,6 +48,7 @@ export class SettingsManager {
                 monoFont: "Geist Mono",
                 autoConvertLongText: true,
                 autoScrapeUrls: true,
+                showCost: false,
                 apiKeys: {},
                 quickChat: {
                     enabled: true,
@@ -70,6 +72,7 @@ export class SettingsManager {
                 monoFont: "Fira Code",
                 autoConvertLongText: true,
                 autoScrapeUrls: true,
+                showCost: false,
                 apiKeys: {},
                 quickChat: {
                     enabled: true,

@@ -16,7 +16,7 @@ import {
 } from "@core/chorus/ChatState";
 import * as Reviews from "../reviews";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LLMMessage, ModelConfig } from "../Models";
+import { LLMMessage, ModelConfig, UsageData } from "../Models";
 import * as Models from "../Models";
 import { UpdateQueue } from "../UpdateQueue";
 import posthog from "posthog-js";
@@ -39,6 +39,11 @@ import {
     getApiKeys,
     getCustomBaseUrl,
 } from "./AppMetadataAPI";
+import {
+    calculateCost,
+    updateChatAndProjectCosts,
+    fetchOpenRouterCost,
+} from "./CostAPI";
 import {
     projectQueries,
     useGetProjectContextLLMMessage,
@@ -106,6 +111,10 @@ export interface MessageDBRow {
     level: number | null;
     reply_chat_id: string | null;
     branched_from_id: string | null;
+    prompt_tokens: number | null;
+    completion_tokens: number | null;
+    total_tokens: number | null;
+    cost_usd: number | null;
 }
 
 export interface MessagePartDBRow {
@@ -140,6 +149,10 @@ export function readMessage(
         parts: messagePartsRows.map(readMessagePart),
         replyChatId: row.reply_chat_id ?? undefined,
         branchedFromId: row.branched_from_id ?? undefined,
+        promptTokens: row.prompt_tokens ?? undefined,
+        completionTokens: row.completion_tokens ?? undefined,
+        totalTokens: row.total_tokens ?? undefined,
+        costUsd: row.cost_usd ?? undefined,
     };
 }
 
@@ -1101,8 +1114,8 @@ export function useStreamMessagePart() {
             const onComplete = async (
                 finalText: string | undefined,
                 toolCalls?: UserToolCall[],
+                usageData?: UsageData,
             ) => {
-                console.log("onComplete", finalText, toolCalls);
                 // if the provider didn't give us final text, then we use the
                 // one we've been accumulating
                 finalText = finalText ?? partialResponse;
@@ -1112,8 +1125,44 @@ export function useStreamMessagePart() {
 
                 const hasToolCalls = toolCalls && toolCalls.length > 0;
 
-                if (hasToolCalls) {
-                    console.log("Received tool calls:", toolCalls);
+                // Calculate cost - use OpenRouter's actual cost when available
+                let costUsd: number | undefined;
+                let actualPromptTokens = usageData?.prompt_tokens;
+                let actualCompletionTokens = usageData?.completion_tokens;
+
+                // For OpenRouter models with generation ID, fetch actual costs
+                if (
+                    usageData?.generation_id &&
+                    modelConfig.modelId.startsWith("openrouter::") &&
+                    apiKeys.openrouter
+                ) {
+                    const openRouterCost = await fetchOpenRouterCost(
+                        usageData.generation_id,
+                        apiKeys.openrouter,
+                    );
+                    if (openRouterCost) {
+                        costUsd = openRouterCost.cost;
+                        // Use native token counts from OpenRouter
+                        actualPromptTokens = openRouterCost.promptTokens;
+                        actualCompletionTokens =
+                            openRouterCost.completionTokens;
+                    }
+                }
+
+                // Fallback to calculated cost for non-OpenRouter or if fetch failed
+                if (
+                    costUsd === undefined &&
+                    usageData?.prompt_tokens !== undefined &&
+                    usageData?.completion_tokens !== undefined &&
+                    modelConfig.promptPricePerToken !== undefined &&
+                    modelConfig.completionPricePerToken !== undefined
+                ) {
+                    costUsd = calculateCost(
+                        usageData.prompt_tokens,
+                        usageData.completion_tokens,
+                        modelConfig.promptPricePerToken,
+                        modelConfig.completionPricePerToken,
+                    );
                 }
 
                 // Update message part in the db
@@ -1139,6 +1188,78 @@ export function useStreamMessagePart() {
                     console.debug(
                         "Skipped message part update. This could be because the user hit the stop button.",
                     );
+                }
+
+                // Update message with usage and cost data
+                // Accumulate costs across multiple message parts (e.g., tool call rounds)
+                // Only update fields when we have actual values - preserve NULL for unknown costs
+                if (usageData) {
+                    const hasTokens =
+                        actualPromptTokens !== undefined &&
+                        actualCompletionTokens !== undefined;
+                    const hasCost = costUsd !== undefined;
+
+                    if (hasTokens || hasCost) {
+                        // Build SET clause dynamically to avoid writing 0 for unknown values
+                        // Use a helper to track the next parameter index (1-based for SQL)
+                        let paramIndex = 1;
+                        const setClauses: string[] = [];
+                        const params: (number | string)[] = [];
+
+                        if (
+                            actualPromptTokens !== undefined &&
+                            actualCompletionTokens !== undefined
+                        ) {
+                            setClauses.push(
+                                `prompt_tokens = COALESCE(prompt_tokens, 0) + $${paramIndex++}`,
+                            );
+                            params.push(actualPromptTokens);
+                            setClauses.push(
+                                `completion_tokens = COALESCE(completion_tokens, 0) + $${paramIndex++}`,
+                            );
+                            params.push(actualCompletionTokens);
+                            setClauses.push(
+                                `total_tokens = COALESCE(total_tokens, 0) + $${paramIndex++}`,
+                            );
+                            params.push(
+                                actualPromptTokens + actualCompletionTokens,
+                            );
+                        }
+
+                        if (costUsd !== undefined) {
+                            setClauses.push(
+                                `cost_usd = COALESCE(cost_usd, 0) + $${paramIndex++}`,
+                            );
+                            params.push(costUsd);
+                        }
+
+                        // Add WHERE clause parameters (increment both for consistency, even though
+                        // paramIndex isn't used after this - makes the code more obviously correct)
+                        const messageIdParamIndex = paramIndex++;
+                        const streamingTokenParamIndex = paramIndex++;
+                        params.push(messageId, streamingToken);
+
+                        await db.execute(
+                            `UPDATE messages
+                            SET ${setClauses.join(", ")}
+                            WHERE id = $${messageIdParamIndex} AND streaming_token = $${streamingTokenParamIndex}`,
+                            params,
+                        );
+                    }
+
+                    // Update chat and project costs efficiently
+                    const projectId = await updateChatAndProjectCosts(chatId);
+
+                    // Invalidate queries to refresh UI with updated costs
+                    await queryClient.invalidateQueries(chatQueries.list());
+                    await queryClient.invalidateQueries(
+                        chatQueries.detail(chatId),
+                    );
+                    if (projectId) {
+                        await queryClient.invalidateQueries(
+                            projectQueries.list(),
+                        );
+                    }
                 }
 
                 // do not set message to idle, since we may stream more parts later
@@ -1313,6 +1434,7 @@ export function useStreamMessageLegacy() {
             const onComplete = async (
                 finalText: string | undefined,
                 toolCalls?: UserToolCall[],
+                usageData?: UsageData,
             ) => {
                 if (toolCalls && toolCalls.length > 0) {
                     console.error("Dropping unexpected tool calls", toolCalls);
@@ -1328,13 +1450,85 @@ export function useStreamMessageLegacy() {
                     streamingToken,
                 );
 
+                // Calculate cost - use OpenRouter's actual cost when available
+                let costUsd: number | undefined;
+                let actualPromptTokens = usageData?.prompt_tokens;
+                let actualCompletionTokens = usageData?.completion_tokens;
+
+                // For OpenRouter models with generation ID, fetch actual costs
+                if (
+                    usageData?.generation_id &&
+                    modelConfig.modelId.startsWith("openrouter::") &&
+                    apiKeys.openrouter
+                ) {
+                    const openRouterCost = await fetchOpenRouterCost(
+                        usageData.generation_id,
+                        apiKeys.openrouter,
+                    );
+                    if (openRouterCost) {
+                        costUsd = openRouterCost.cost;
+                        // Use native token counts from OpenRouter
+                        actualPromptTokens = openRouterCost.promptTokens;
+                        actualCompletionTokens =
+                            openRouterCost.completionTokens;
+                    }
+                }
+
+                // Fallback to calculated cost for non-OpenRouter or if fetch failed
+                if (
+                    costUsd === undefined &&
+                    usageData?.prompt_tokens !== undefined &&
+                    usageData?.completion_tokens !== undefined &&
+                    modelConfig.promptPricePerToken !== undefined &&
+                    modelConfig.completionPricePerToken !== undefined
+                ) {
+                    costUsd = calculateCost(
+                        usageData.prompt_tokens,
+                        usageData.completion_tokens,
+                        modelConfig.promptPricePerToken,
+                        modelConfig.completionPricePerToken,
+                    );
+                }
+
                 // Update the message in the database including tool calls if present
+                // Use actual token counts (from OpenRouter when available, otherwise from usage data)
+                const totalTokens =
+                    actualPromptTokens !== undefined &&
+                    actualCompletionTokens !== undefined
+                        ? actualPromptTokens + actualCompletionTokens
+                        : (usageData?.total_tokens ?? null);
+
                 await db.execute(
                     `UPDATE messages
-                    SET streaming_token = NULL, state = 'idle', text = ?
+                    SET streaming_token = NULL, state = 'idle', text = ?,
+                        prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, cost_usd = ?
                     WHERE id = ? AND streaming_token = ?`,
-                    [finalText, messageId, streamingToken],
+                    [
+                        finalText,
+                        actualPromptTokens ?? null,
+                        actualCompletionTokens ?? null,
+                        totalTokens,
+                        costUsd ?? null,
+                        messageId,
+                        streamingToken,
+                    ],
                 );
+
+                // Update chat and project costs if we have usage data
+                if (usageData) {
+                    const projectId = await updateChatAndProjectCosts(chatId);
+
+                    // Invalidate queries to refresh UI with updated costs
+                    await queryClient.invalidateQueries(chatQueries.list());
+                    await queryClient.invalidateQueries(
+                        chatQueries.detail(chatId),
+                    );
+                    if (projectId) {
+                        await queryClient.invalidateQueries(
+                            projectQueries.list(),
+                        );
+                    }
+                }
 
                 UpdateQueue.getInstance().closeUpdateStream(streamKey);
 

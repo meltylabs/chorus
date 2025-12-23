@@ -117,6 +117,7 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import SimpleCopyButton from "./unused/CopyButton";
+import { MessageCostDisplay } from "./MessageCostDisplay";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import {
     isPermissionGranted,
@@ -1076,6 +1077,13 @@ function ToolsAIMessageViewInner({
                                 //         isStreaming={message.state === "streaming"}
                                 //     />
                                 // )} */}
+            <MessageCostDisplay
+                costUsd={message.costUsd}
+                promptTokens={message.promptTokens}
+                completionTokens={message.completionTokens}
+                isStreaming={message.state === "streaming"}
+                isQuickChatWindow={isQuickChatWindow}
+            />
         </div>
     );
 }

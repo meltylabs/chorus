@@ -43,6 +43,8 @@ export type Project = {
     contextText?: string;
     magicProjectsEnabled: boolean;
     isImported: boolean;
+    // Cost tracking
+    totalCostUsd?: number;
 };
 
 export type Projects = {
@@ -60,6 +62,7 @@ type ProjectDBRow = {
     magic_projects_enabled: number;
     context_text?: string;
     is_imported: number;
+    total_cost_usd: number | null;
 };
 
 function readProject(row: ProjectDBRow): Project {
@@ -72,13 +75,14 @@ function readProject(row: ProjectDBRow): Project {
         contextText: row.context_text,
         magicProjectsEnabled: row.magic_projects_enabled === 1,
         isImported: row.is_imported === 1,
+        totalCostUsd: row.total_cost_usd ?? undefined,
     };
 }
 
 export async function fetchProjects(): Promise<Project[]> {
     return await db
         .select<ProjectDBRow[]>(
-            `SELECT id, name, updated_at, created_at, is_collapsed, magic_projects_enabled, is_imported
+            `SELECT id, name, updated_at, created_at, is_collapsed, magic_projects_enabled, is_imported, total_cost_usd
             FROM projects
             ORDER BY updated_at DESC`,
         )
