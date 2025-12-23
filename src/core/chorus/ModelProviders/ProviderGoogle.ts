@@ -91,14 +91,14 @@ export class ProviderGoogle implements IProvider {
         // https://discuss.ai.google.dev/t/gemini-api-cors-error-with-openai-compatability/58619/16
         const headers = {
             ...(additionalHeaders ?? {}),
-            'x-stainless-arch': null,
-            'x-stainless-lang': null,
-            'x-stainless-os': null,
-            'x-stainless-package-version': null,
-            'x-stainless-retry-count': null,
-            'x-stainless-runtime': null,
-            'x-stainless-runtime-version': null,
-            'x-stainless-timeout': null,
+            "x-stainless-arch": null,
+            "x-stainless-lang": null,
+            "x-stainless-os": null,
+            "x-stainless-package-version": null,
+            "x-stainless-retry-count": null,
+            "x-stainless-runtime": null,
+            "x-stainless-runtime-version": null,
+            "x-stainless-timeout": null,
         };
         const client = new OpenAI({
             baseURL,
