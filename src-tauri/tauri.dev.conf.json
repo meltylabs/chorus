@@ -1,7 +1,7 @@
 {
     "$schema": "https://schema.tauri.app/config/2.0.2",
     "productName": "Chorus",
-    "version": "0.14.3",
+    "version": "0.14.4",
     "identifier": "sh.chorus.app.dev",
     "build": {
         "beforeDevCommand": "pnpm vite:dev",
