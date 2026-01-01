@@ -3,7 +3,7 @@ import React from "react";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import AutoExpandingTextarea from "./AutoExpandingTextarea";
 import { AttachmentAddPill, AttachmentDropArea } from "./AttachmentsViews";
-import { AttachmentType } from "@core/chorus/Models";
+import { AttachmentType, getProviderName } from "@core/chorus/Models";
 import {
     MANAGE_MODELS_COMPARE_DIALOG_ID,
     ManageModelsBox,
@@ -92,6 +92,15 @@ export function ChatInput({
         ModelsAPI.useSelectedModelConfigsCompare();
     const modelConfigs = ModelsAPI.useModelConfigs();
     const appMetadata = useWaitForAppMetadata();
+
+    // Hide toolsets when all selected models are Claude Code (which has its own built-in tools)
+    const allModelsAreClaudeCode = useMemo(() => {
+        const selectedConfigs = selectedModelConfigsCompare.data ?? [];
+        if (selectedConfigs.length === 0) return false;
+        return selectedConfigs.every(
+            (config) => getProviderName(config.modelId) === "claude-code",
+        );
+    }, [selectedModelConfigsCompare.data]);
     const cautiousEnter = appMetadata["cautious_enter"] === "true";
 
     const { draft, setDraft } = DraftAPI.useAutoSyncMessageDraft(chatId);
@@ -624,7 +633,7 @@ export function ChatInput({
                                 showShortcut={false}
                             />
                         )}
-                        {!isReply && <ToolsBox />}
+                        {!isReply && !allModelsAreClaudeCode && <ToolsBox />}
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 h-7">
