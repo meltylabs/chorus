@@ -56,6 +56,16 @@ function getSearchProviderConfig(apiKeys: ApiKeys): SearchProviderConfig | null 
             model: "sonar",
             defaultHeaders: {
                 "Content-Type": "application/json",
+                // unset headers that are not supported by the Perplexity API
+                // Perplexity's API does not allow x-stainless-* headers added by the OpenAI JS SDK
+                "x-stainless-arch": null,
+                "x-stainless-lang": null,
+                "x-stainless-os": null,
+                "x-stainless-package-version": null,
+                "x-stainless-retry-count": null,
+                "x-stainless-runtime": null,
+                "x-stainless-runtime-version": null,
+                "x-stainless-timeout": null,
             },
         };
     }

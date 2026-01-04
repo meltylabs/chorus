@@ -52,13 +52,25 @@ export class ProviderPerplexity implements IProvider {
 
         const baseURL = customBaseUrl || "https://api.perplexity.ai";
 
+        // unset headers that are not supported by the Perplexity API
+        // Perplexity's API does not allow x-stainless-* headers added by the OpenAI JS SDK
+        const headers = {
+            ...(additionalHeaders ?? {}),
+            "Content-Type": "application/json",
+            "x-stainless-arch": null,
+            "x-stainless-lang": null,
+            "x-stainless-os": null,
+            "x-stainless-package-version": null,
+            "x-stainless-retry-count": null,
+            "x-stainless-runtime": null,
+            "x-stainless-runtime-version": null,
+            "x-stainless-timeout": null,
+        };
+
         const client = new OpenAI({
             baseURL,
             apiKey: apiKeys.perplexity,
-            defaultHeaders: {
-                ...(additionalHeaders ?? {}),
-                "Content-Type": "application/json",
-            },
+            defaultHeaders: headers,
             dangerouslyAllowBrowser: true,
         });
 
