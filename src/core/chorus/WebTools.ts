@@ -47,7 +47,9 @@ function getErrorMessage(error: unknown): string {
     }
 }
 
-function getSearchProviderConfig(apiKeys: ApiKeys): SearchProviderConfig | null {
+function getSearchProviderConfig(
+    apiKeys: ApiKeys,
+): SearchProviderConfig | null {
     if (apiKeys.perplexity) {
         return {
             name: "perplexity",
