@@ -18,7 +18,7 @@ Tools:
         - webpage content + `<warning>Content truncated. Call the fetch tool with a start_index of {next_start} to get more content.</warning>`
         - `<error>Markdown conversion failed. You may try again with raw = true.</error>`
         - fetch errors appear like `<error>Error fetching webpage: 403 Unauthorized</error>`
-- `web_search` - Searches the web to produce a report (with citations) on a topic. Uses Perplexity Sonar to produce the report.
+- `web_search` - Searches the web to produce a report (with citations) on a topic. Uses Perplexity Sonar (via Perplexity or OpenRouter) to produce the report.
     - `query` (string, required): The topic to search for.
     - Return values: list of webpages
 */
