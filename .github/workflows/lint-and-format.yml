@@ -45,3 +45,6 @@ jobs:
 
       - name: Run ESLint
         run: pnpm lint
+
+      - name: Run TypeScript check
+        run: pnpm tsc

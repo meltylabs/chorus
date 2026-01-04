@@ -26,7 +26,7 @@ type SearchProviderConfig = {
     baseURL: string;
     apiKey: string;
     model: string;
-    defaultHeaders?: Record<string, string>;
+    defaultHeaders?: Record<string, string | null>;
 };
 
 const OPENROUTER_PERPLEXITY_MODEL = "perplexity/sonar";
@@ -129,7 +129,13 @@ export class WebTools {
             const client = new OpenAI({
                 baseURL: providerConfig.baseURL,
                 apiKey: providerConfig.apiKey,
-                defaultHeaders: providerConfig.defaultHeaders,
+                defaultHeaders: providerConfig.defaultHeaders
+                    ? Object.fromEntries(
+                          Object.entries(providerConfig.defaultHeaders).filter(
+                              ([, value]) => value !== null,
+                          ),
+                      )
+                    : undefined,
                 dangerouslyAllowBrowser: true,
             });
 
