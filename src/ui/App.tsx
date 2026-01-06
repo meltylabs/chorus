@@ -329,7 +329,7 @@ function AppContent() {
                             });
                             toast.success("GitHub successfully connected", {
                                 description:
-                                    "You can now manage repos, code, issues, and PRs from Chorus",
+                                    "You can now manage repos, code, issues, and PRs",
                             });
                         }
                     } else if (urlObj.hostname === "chat") {
@@ -668,7 +668,7 @@ function AppContent() {
                 const info = `Version: ${appVersion}\nPlatform: ${plat}\nArchitecture: ${architecture}\nOS Version: ${osVer}\n\n`;
 
                 const shouldCopy = await confirm(info, {
-                    title: "Chorus",
+                    title: "OpenRouter Chorus",
                     okLabel: "Copy",
                     cancelLabel: "Close",
                 });
@@ -798,8 +798,8 @@ function AppContent() {
                             Open Source
                         </AlertTitle>
                         <AlertDescription>
-                            Chorus is now Open Source! It now runs on your own
-                            API keys. Add them in Settings → API Keys.
+                            OpenRouter Chorus is now Open Source! It now runs on
+                            your own API keys. Add them in Settings → API Keys.
                             <br />
                             <br />
                             <div className="gap-4 mt-2">
@@ -807,7 +807,7 @@ function AppContent() {
                                     className="text-sm text-muted-foreground hover:text-foreground"
                                     onClick={() =>
                                         void openUrl(
-                                            "https://github.com/meltylabs/chorus",
+                                            "https://github.com/OpenRouterTeam/openrouter-chorus",
                                         )
                                     }
                                 >
@@ -828,7 +828,7 @@ function AppContent() {
                         <AlertDialogDescription>
                             Thanks for signing up! You've been added to our
                             waitlist. We'll email you as soon as your account is
-                            activated with full access to Chorus.
+                            activated with full access to OpenRouter Chorus.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                 </AlertDialogContent>
@@ -1045,8 +1045,8 @@ function App() {
                                         Move to Applications Folder
                                     </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Looks like Chorus isn't in your
-                                        Applications folder! This means you
+                                        Looks like OpenRouter Chorus isn't in
+                                        your Applications folder! This means you
                                         won't be able to get updates.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>

@@ -17,7 +17,7 @@ INSTANCE_NAME="${1:-$DEFAULT_INSTANCE_NAME}"
 SAFE_INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
 
 # Create the unique identifier
-IDENTIFIER="sh.chorus.app.dev.$SAFE_INSTANCE_NAME"
+IDENTIFIER="ai.openrouter.desktop.dev.$SAFE_INSTANCE_NAME"
 
 # Calculate a unique port based on the instance name
 # Use a hash of the instance name to generate a port number between 1422 and 1520
@@ -61,7 +61,7 @@ else
 EOF
 fi
 
-echo "Starting Chorus development instance: $INSTANCE_NAME"
+echo "Starting OpenRouter Chorus development instance: $INSTANCE_NAME"
 echo "App identifier: $IDENTIFIER"
 echo "Data directory: ~/Library/Application Support/$IDENTIFIER/"
 echo "Dev server port: $PORT (HMR: $HMR_PORT)"

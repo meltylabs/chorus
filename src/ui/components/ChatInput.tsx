@@ -243,7 +243,7 @@ export function ChatInput({
                 } catch (error) {
                     toast.error("Error capturing screen", {
                         description:
-                            "It's possible that Chorus doesn't have screenshot permissions, which is needed to enable vision mode.",
+                            "Screenshot permissions may not be granted, which is needed to enable vision mode.",
                         action: {
                             label: "Open Settings",
                             onClick: () => {

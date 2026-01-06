@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Chorus Data Backup Script
-# This script backs up all Chorus application data including:
+# OpenRouter Chorus Data Backup Script
+# This script backs up all OpenRouter Chorus application data including:
 # - SQLite database (chats.db)
 # - Settings files (settings, settings.json)
 # - Authentication data (auth.dat)
@@ -40,9 +40,9 @@ if [ -z "$1" ]; then
     echo "  $0 prod ~/backups    # Backup production to ~/backups"
     echo ""
     echo "Available instances:"
-    echo "  prod - Production instance (sh.chorus.app)"
+    echo "  prod - Production instance (ai.openrouter.desktop)"
     echo "  dev  - Development instance for current directory"
-    echo "  all  - All Chorus instances"
+    echo "  all  - All OpenRouter Chorus instances"
     exit 1
 fi
 
@@ -136,8 +136,8 @@ backup_instance() {
 
     # Create a backup info file
     cat > "$BACKUP_STAGING/BACKUP_INFO.txt" << EOF
-Chorus Data Backup
-==================
+OpenRouter Chorus Data Backup
+=============================
 Backup Date: $(date)
 Instance: $backup_name
 Source Path: $app_data_dir
@@ -172,22 +172,22 @@ case "$INSTANCE_TYPE" in
     prod)
         print_info "=== Backing up Production Instance ==="
         echo ""
-        backup_instance "$HOME/Library/Application Support/sh.chorus.app" "production"
+        backup_instance "$HOME/Library/Application Support/ai.openrouter.desktop" "production"
         ;;
 
     dev)
         print_info "=== Backing up Development Instance ($CURRENT_DIR_NAME) ==="
         echo ""
-        backup_instance "$HOME/Library/Application Support/sh.chorus.app.dev.$SAFE_INSTANCE_NAME" "dev_$SAFE_INSTANCE_NAME"
+        backup_instance "$HOME/Library/Application Support/ai.openrouter.desktop.dev.$SAFE_INSTANCE_NAME" "dev_$SAFE_INSTANCE_NAME"
         ;;
 
     all)
-        print_info "=== Backing up All Chorus Instances ==="
+        print_info "=== Backing up All OpenRouter Chorus Instances ==="
         echo ""
 
         BACKUP_COUNT=0
 
-        # Find all Chorus directories
+        # Find all OpenRouter Chorus directories
         while IFS= read -r dir; do
             if [ -z "$dir" ]; then
                 continue
@@ -195,15 +195,15 @@ case "$INSTANCE_TYPE" in
 
             # Extract instance name from directory path
             DIR_NAME=$(basename "$dir")
-            INSTANCE_NAME=$(echo "$DIR_NAME" | sed 's/^sh\.chorus\.app\.dev\./dev_/' | sed 's/^sh\.chorus\.app$/production/')
+            INSTANCE_NAME=$(echo "$DIR_NAME" | sed 's/^ai\.openrouter\.desktop\.dev\./dev_/' | sed 's/^ai\.openrouter\.desktop$/production/')
 
             if backup_instance "$dir" "$INSTANCE_NAME"; then
                 ((BACKUP_COUNT++))
             fi
-        done < <(find "$HOME/Library/Application Support/" -maxdepth 1 -type d -name "sh.chorus.app*" 2>/dev/null)
+        done < <(find "$HOME/Library/Application Support/" -maxdepth 1 -type d -name "ai.openrouter.desktop*" 2>/dev/null)
 
         if [ $BACKUP_COUNT -eq 0 ]; then
-            print_error "No Chorus instances found to backup!"
+            print_error "No OpenRouter Chorus instances found to backup!"
             exit 1
         fi
 
@@ -221,7 +221,7 @@ esac
 print_info "Backup complete! Files saved to: $OUTPUT_DIR"
 echo ""
 print_info "To restore from backup:"
-print_info "  1. Close Chorus completely"
+print_info "  1. Close OpenRouter Chorus completely"
 print_info "  2. Extract the zip file"
-print_info "  3. Copy files back to: ~/Library/Application Support/sh.chorus.app[.dev.NAME]/"
-print_info "  4. Restart Chorus"
+print_info "  3. Copy files back to: ~/Library/Application Support/ai.openrouter.desktop[.dev.NAME]/"
+print_info "  4. Restart OpenRouter Chorus"

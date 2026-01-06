@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to delete the Chorus database
+# Script to delete the OpenRouter Chorus database
 # This will remove all data including workspaces, sessions, and settings
 
 # Get the instance name from the directory
@@ -10,7 +10,7 @@ INSTANCE_NAME=$(basename "$(pwd)")
 SAFE_INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
 
 # Construct the database path
-DB_PATH="$HOME/Library/Application Support/sh.chorus.app.dev.$SAFE_INSTANCE_NAME/chats.db"
+DB_PATH="$HOME/Library/Application Support/ai.openrouter.desktop.dev.$SAFE_INSTANCE_NAME/chats.db"
 
 # Check if the database exists
 if [ -f "$DB_PATH" ]; then

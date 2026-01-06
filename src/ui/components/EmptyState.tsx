@@ -17,7 +17,7 @@ const getTips = (quickChatShortcut: string) => [
     { content: "Toggle the sidebar with ⌘B." },
     { content: "Open settings with ⌘," },
     { content: "Press ⌘T to give models access to tools." },
-    { content: "Paste in a URL and Chorus will read it for you." },
+    { content: "Paste in a URL and it will be read for you." },
     {
         content: (
             <>

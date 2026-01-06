@@ -721,8 +721,7 @@ export function ManageModelsBox({
                                 ) : apiKeys && !apiKeys.openrouter ? (
                                     <div className="px-2 mb-4 text-sm text-muted-foreground">
                                         <p className="mb-2">
-                                            OpenRouter models require an API
-                                            key.
+                                            An API key is required.
                                         </p>
                                         <Button
                                             variant="outline"
@@ -735,7 +734,7 @@ export function ManageModelsBox({
                                                 handleAddApiKey();
                                             }}
                                         >
-                                            Add OpenRouter API key in Settings
+                                            Add API key in Settings
                                         </Button>
                                     </div>
                                 ) : undefined

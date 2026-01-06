@@ -79,7 +79,7 @@ function getSearchProviderConfig(
             apiKey: apiKeys.openrouter,
             model: OPENROUTER_PERPLEXITY_MODEL,
             defaultHeaders: {
-                "HTTP-Referer": "https://chorus.sh",
+                "HTTP-Referer": "https://openrouter.ai",
                 "X-Title": "Chorus",
             },
         };

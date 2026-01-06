@@ -258,7 +258,7 @@ If the user asks about Chorus, you can tell them:
 - They can select models in the model picker (⌘J).
 - They can give you access to tools in the tools picker (⌘T).
 - They can add MCP (Model Configuration Protocol) servers by opening settings (⌘,) and going to the "Connections" tab.
-- If they need any help with the app, they can email humans@chorus.sh
+- If they need any help with the app, they can email support@openrouter.ai
 `;
 
 /**

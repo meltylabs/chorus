@@ -62,7 +62,7 @@ export class ProviderOpenRouter implements IProvider {
             apiKey: apiKeys.openrouter,
             defaultHeaders: {
                 ...(additionalHeaders ?? {}),
-                "HTTP-Referer": "https://chorus.sh",
+                "HTTP-Referer": "https://openrouter.ai",
                 "X-Title": "Chorus",
             },
             dangerouslyAllowBrowser: true,

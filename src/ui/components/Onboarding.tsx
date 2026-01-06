@@ -62,7 +62,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                 <div className="text-center space-y-6 max-w-3xl w-full">
                     <div className="space-y-2">
                         <h1 className="text-2xl font-semibold tracking-tight">
-                            Welcome to Chorus
+                            Welcome to OpenRouter Chorus
                         </h1>
                         <p className="text text-muted-foreground pb-6">
                             All the AI, on your Mac.
@@ -94,14 +94,13 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                         Add an API Key
                     </h1>
                     <p className="text-muted-foreground">
-                        Chorus runs on API keys. We recommend{" "}
                         <a
-                            href="https://openrouter.ai/keys"
+                            href="https://openrouter.ai/settings/keys"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary underline underline-offset-4"
                         >
-                            OpenRouter
+                            Get your API key
                         </a>{" "}
                         to get started.
                     </p>

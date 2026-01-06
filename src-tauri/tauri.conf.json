@@ -1,8 +1,8 @@
 {
     "$schema": "https://schema.tauri.app/config/2.0.2",
-    "productName": "Chorus",
+    "productName": "OpenRouter Chorus",
     "version": "0.14.4",
-    "identifier": "sh.chorus.app",
+    "identifier": "ai.openrouter.desktop",
     "build": {
         "beforeDevCommand": "pnpm vite:dev",
         "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
         "macOSPrivateApi": true,
         "windows": [
             {
-                "title": "Chorus",
+                "title": "OpenRouter Chorus",
                 "label": "main",
                 "titleBarStyle": "Overlay",
                 "url": "/",
@@ -85,7 +85,7 @@
         },
         "deep-link": {
             "desktop": {
-                "schemes": ["chorus"]
+                "schemes": ["openrouter"]
             }
         }
     }

@@ -1053,10 +1053,10 @@ function ToolsTab() {
                     MCP servers are complicated. If you have any trouble, please
                     email us at{" "}
                     <a
-                        href="mailto:humans@chorus.sh"
+                        href="mailto:support@openrouter.ai"
                         className="text-foreground"
                     >
-                        humans@chorus.sh
+                        support@openrouter.ai
                     </a>
                     .
                 </p>
@@ -1377,7 +1377,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             <DialogHeader className="sr-only">
                 <DialogTitle>Settings</DialogTitle>
                 <DialogDescription>
-                    Manage your Chorus settings
+                    Manage your OpenRouter Chorus settings
                 </DialogDescription>
             </DialogHeader>
 
@@ -1392,7 +1392,7 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                     onClick={() => {
                                         if (id === "docs") {
                                             void openUrl(
-                                                "https://docs.chorus.sh",
+                                                "https://openrouter.ai/docs",
                                             );
                                         } else {
                                             setActiveTab(id as SettingsTabId);
@@ -1431,9 +1431,9 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                             </div>
                             <div className="space-y-4">
                                 <p className="text-sm text-muted-foreground">
-                                    Chorus requires you to bring your own API
-                                    keys to use AI models. Add your keys in the
-                                    API Keys tab.
+                                    OpenRouter Chorus requires you to bring your
+                                    own API keys to use AI models. Add your keys
+                                    in the API Keys tab.
                                 </p>
                                 <div className="flex gap-2">
                                     <Button
@@ -1910,9 +1910,9 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                         className="font-mono"
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                        Leave empty to use the default Chorus
-                                        proxy. When set, all model requests will
-                                        be sent directly to this URL without any
+                                        Leave empty to use the default proxy.
+                                        When set, all model requests will be
+                                        sent directly to this URL without any
                                         path modifications.
                                     </p>
                                 </div>

@@ -48,7 +48,7 @@ export default function ApiKeysForm({
             id: "openrouter",
             name: "OpenRouter",
             placeholder: "sk-or-...",
-            url: "https://openrouter.ai/keys",
+            url: "https://openrouter.ai/settings/keys",
         },
         {
             id: "grok",

@@ -21,7 +21,7 @@ export class SimpleCompletionProviderOpenRouter
             baseURL: "https://openrouter.ai/api/v1",
             apiKey: this.apiKey,
             defaultHeaders: {
-                "HTTP-Referer": "https://chorus.sh",
+                "HTTP-Referer": "https://openrouter.ai",
                 "X-Title": "Chorus",
             },
             dangerouslyAllowBrowser: true,

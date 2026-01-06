@@ -25,7 +25,7 @@ export function useShareChat(chatId: string) {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>Chorus - ${chatQuery.data.title}</title>
+                    <title>OpenRouter Chorus - ${chatQuery.data.title}</title>
                     <style>
                         ${Array.from(document.styleSheets)
                             .map((sheet) => {
@@ -67,11 +67,11 @@ export function useShareChat(chatId: string) {
                  <header class="px-4 py-3 border-b border-zinc-200 font-geist">
                     <div class="flex w-full justify-between items-center">
                     <div class="flex items-center gap-2">
-                        <img src="/images/chorus-no-padding.png" class="h-8 shadow-sm w-auto rounded-md border border-zinc-200" alt="Chorus Logo" />
-                        <span class="text font-medium text-zinc-900">Chorus</span>
+                        <img src="/openrouter.png" class="h-8 shadow-sm w-auto rounded-md border border-zinc-200" alt="OpenRouter Logo" />
+                        <span class="text font-medium text-zinc-900">OpenRouter Chorus</span>
                     </div>
                     <p class="text-sm text-zinc-600">
-                        <a href="https://chorus.sh" class="bg-zinc-800 text-white px-2.5 py-2 font-medium rounded-md hover:bg-zinc-700">
+                        <a href="https://openrouter.ai" class="bg-zinc-800 text-white px-2.5 py-2 font-medium rounded-md hover:bg-zinc-700">
                         Download &rarr;
                         </a>
                     </p>

@@ -525,9 +525,9 @@ function AIMessageView({
                                 {isQuickChatWindow && (
                                     <div className="flex flex-col gap-2 mt-4">
                                         <p className="text-red-800">
-                                            It's possible that Chorus doesn't
-                                            have screenshot permissions, which
-                                            is required for vision mode.
+                                            Screenshot permissions may not be
+                                            granted, which is required for
+                                            vision mode.
                                         </p>
                                         <Button
                                             variant="outline"
@@ -537,7 +537,7 @@ function AIMessageView({
                                                 );
                                             }}
                                         >
-                                            Allow Chorus to see your screen
+                                            Allow screen recording
                                         </Button>
                                     </div>
                                 )}

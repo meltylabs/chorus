@@ -17,9 +17,9 @@ INSTANCE_NAME="${1:-$DEFAULT_INSTANCE_NAME}"
 SAFE_INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9_-]/_/g')
 
 # Create the unique identifier
-IDENTIFIER="sh.chorus.app.dev.$SAFE_INSTANCE_NAME"
+IDENTIFIER="ai.openrouter.desktop.dev.$SAFE_INSTANCE_NAME"
 
-echo "Setting up Chorus development instance: $INSTANCE_NAME"
+echo "Setting up OpenRouter Chorus development instance: $INSTANCE_NAME"
 echo "App identifier: $IDENTIFIER"
 
 # Install dependencies
@@ -38,26 +38,26 @@ else
 fi
 
 # Copy auth.dat if it exists in the source directory
-SOURCE_AUTH="$APP_SUPPORT_DIR/sh.chorus.app.dev/auth.dat"
+SOURCE_AUTH="$APP_SUPPORT_DIR/ai.openrouter.desktop.dev/auth.dat"
 if [ -f "$SOURCE_AUTH" ]; then
-    echo "Copying auth.dat from sh.chorus.app.dev..."
+    echo "Copying auth.dat from ai.openrouter.desktop.dev..."
     cp "$SOURCE_AUTH" "$INSTANCE_DIR/auth.dat"
     echo "✓ Authentication copied successfully"
 else
-    echo "⚠ No auth.dat found in sh.chorus.app.dev - you'll need to log in"
+    echo "⚠ No auth.dat found in ai.openrouter.desktop.dev - you'll need to log in"
 fi
 
 # copy chats.db if it exists in the source directory
-SOURCE_CHATS="$APP_SUPPORT_DIR/sh.chorus.app.dev/chats.db"
+SOURCE_CHATS="$APP_SUPPORT_DIR/ai.openrouter.desktop.dev/chats.db"
 if [ -f "$SOURCE_CHATS" ]; then
-    echo "Copying chats.db from sh.chorus.app.dev using sqlite's online backup API..."
+    echo "Copying chats.db from ai.openrouter.desktop.dev using sqlite's online backup API..."
     if ! sqlite3 "$SOURCE_CHATS" ".backup '$INSTANCE_DIR/chats.db'"; then  
         echo "❌ Failed to copy chats database - database will start empty"  
     fi 
 
     echo "✓ Chats copied successfully"
 else
-    echo "⚠ No chats.db found in sh.chorus.app.dev - database will start empty"
+    echo "⚠ No chats.db found in ai.openrouter.desktop.dev - database will start empty"
 fi
 
 # Generate custom icon with ImageMagick if available
