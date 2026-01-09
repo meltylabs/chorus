@@ -78,11 +78,36 @@ fn parse_shortcut(shortcut_str: &str) -> Option<Shortcut> {
     }
     println!("Final modifiers: {:?}", modifiers);
 
-    let code = match key_str.to_lowercase().as_str() {
+    let key_lower = key_str.to_lowercase();
+    let code = match key_lower.as_str() {
         "space" => Code::Space,
         "enter" => Code::Enter,
         "tab" => Code::Tab,
         "escape" => Code::Escape,
+        "f1" => Code::F1,
+        "f2" => Code::F2,
+        "f3" => Code::F3,
+        "f4" => Code::F4,
+        "f5" => Code::F5,
+        "f6" => Code::F6,
+        "f7" => Code::F7,
+        "f8" => Code::F8,
+        "f9" => Code::F9,
+        "f10" => Code::F10,
+        "f11" => Code::F11,
+        "f12" => Code::F12,
+        "f13" => Code::F13,
+        "f14" => Code::F14,
+        "f15" => Code::F15,
+        "f16" => Code::F16,
+        "f17" => Code::F17,
+        "f18" => Code::F18,
+        "f19" => Code::F19,
+        "f20" => Code::F20,
+        "f21" => Code::F21,
+        "f22" => Code::F22,
+        "f23" => Code::F23,
+        "f24" => Code::F24,
         c if c.len() == 1 => {
             let ch = c.chars().next()?;
             char_to_code(ch.to_ascii_uppercase())?
