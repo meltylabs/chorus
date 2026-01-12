@@ -14,6 +14,8 @@ export interface Settings {
         google?: string;
         perplexity?: string;
         openrouter?: string;
+        grok?: string;
+        kimi?: string;
         firecrawl?: string;
     };
     quickChat?: {

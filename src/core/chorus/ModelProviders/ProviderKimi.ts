@@ -39,7 +39,7 @@ export class ProviderKimi implements IProvider {
             );
         }
 
-        const baseURL = customBaseUrl || "https://api.moonshot.ai/v1";
+        const baseURL = customBaseUrl || "https://api.moonshot.cn/v1";
 
         const client = new OpenAI({
             baseURL,
