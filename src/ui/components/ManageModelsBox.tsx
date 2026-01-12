@@ -505,6 +505,7 @@ export function ManageModelsBox({
             "google",
             "perplexity",
             "grok",
+            "kimi",
         ] as const;
 
         const directByProvider = Object.fromEntries(
@@ -789,6 +790,18 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="grok"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.kimi.length > 0 && (
+                        <ModelGroup
+                            heading="Kimi"
+                            models={modelGroups.directByProvider.kimi}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="kimi"
                             showCost={showCost}
                         />
                     )}
