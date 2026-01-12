@@ -221,9 +221,8 @@ function ModelGroup({
                             }
                         }}
                         disabled={
-                            !m.isEnabled ||
-                            (mode.type === "add" &&
-                                checkedModelConfigIds.includes(m.id))
+                            mode.type === "add" &&
+                            checkedModelConfigIds.includes(m.id)
                         }
                         className={`group ${isModelNotAllowed(m) ? "opacity-60" : ""}`}
                     >
@@ -485,7 +484,8 @@ export function ManageModelsBox({
             .filter(Boolean);
 
         const nonInternalModelConfigs =
-            modelConfigs.data?.filter((m) => !m.isInternal) ?? [];
+            modelConfigs.data?.filter((m) => !m.isInternal && m.isEnabled) ??
+            [];
         const systemModels = nonInternalModelConfigs.filter(
             (m) => m.author === "system",
         );

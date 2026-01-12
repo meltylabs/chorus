@@ -3,13 +3,26 @@ import { Label } from "./ui/label";
 import { ProviderName } from "@core/chorus/Models";
 import { ProviderLogo } from "./ui/provider-logo";
 import { Card } from "./ui/card";
-import { CheckIcon, FlameIcon } from "lucide-react";
-import { useState } from "react";
+import { CheckIcon, FlameIcon, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Switch } from "./ui/switch";
+import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 
 interface ApiKeysFormProps {
     apiKeys: Record<string, string>;
     onApiKeyChange: (provider: string, value: string) => void;
 }
+
+// Providers that support model visibility settings (they have dynamic models from API)
+const PROVIDERS_WITH_MODEL_SETTINGS = [
+    "openrouter",
+    "kimi",
+    "anthropic",
+    "openai",
+    "google",
+    "perplexity",
+    "grok",
+];
 
 export default function ApiKeysForm({
     apiKeys,
@@ -69,6 +82,11 @@ export default function ApiKeysForm({
             url: "https://www.firecrawl.dev/app/api-keys",
         },
     ];
+
+    const showModelSettings =
+        selectedProvider &&
+        PROVIDERS_WITH_MODEL_SETTINGS.includes(selectedProvider) &&
+        apiKeys[selectedProvider];
 
     return (
         <div className="space-y-6">
@@ -146,6 +164,147 @@ export default function ApiKeysForm({
                             .
                         </p>
                     </div>
+
+                    {showModelSettings && (
+                        <ModelVisibilitySettings provider={selectedProvider} />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ModelVisibilitySettings({ provider }: { provider: string }) {
+    const modelsQuery = ModelsAPI.useModels();
+    const toggleVisibility = ModelsAPI.useToggleModelVisibility();
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const providerModels = useMemo(() => {
+        if (!modelsQuery.data) return [];
+        return modelsQuery.data
+            .filter((m) => m.id.startsWith(`${provider}::`))
+            .filter((m) => !m.isInternal)
+            .sort((a, b) => {
+                // Sort enabled models first, then alphabetically by display name
+                if (a.isEnabled !== b.isEnabled) {
+                    return a.isEnabled ? -1 : 1;
+                }
+                return a.displayName.localeCompare(b.displayName);
+            });
+    }, [modelsQuery.data, provider]);
+
+    const filteredModels = useMemo(() => {
+        if (!searchQuery) return providerModels;
+        const query = searchQuery.toLowerCase();
+        return providerModels.filter(
+            (m) =>
+                m.displayName.toLowerCase().includes(query) ||
+                m.id.toLowerCase().includes(query),
+        );
+    }, [providerModels, searchQuery]);
+
+    const enabledCount = providerModels.filter((m) => m.isEnabled).length;
+
+    if (modelsQuery.isLoading) {
+        return (
+            <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="ml-2 text-sm text-muted-foreground">
+                    Loading models...
+                </span>
+            </div>
+        );
+    }
+
+    if (providerModels.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">
+                    Model Visibility
+                </Label>
+                <span className="text-sm text-muted-foreground">
+                    {enabledCount} of {providerModels.length} enabled
+                </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+                Choose which models to show in the model picker. Hidden models
+                won&apos;t appear in your model selection.
+            </p>
+
+            {providerModels.length > 5 && (
+                <Input
+                    placeholder="Search models..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="mb-2"
+                />
+            )}
+
+            <div className="max-h-64 overflow-y-auto space-y-1 pr-2">
+                {filteredModels.map((model) => (
+                    <div
+                        key={model.id}
+                        className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-muted/50"
+                    >
+                        <div className="flex-1 min-w-0 mr-3">
+                            <p className="text-sm font-medium truncate">
+                                {model.displayName}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                                {model.id.split("::")[1]}
+                            </p>
+                        </div>
+                        <Switch
+                            checked={model.isEnabled}
+                            onCheckedChange={(checked) => {
+                                toggleVisibility.mutate({
+                                    modelId: model.id,
+                                    isEnabled: checked,
+                                });
+                            }}
+                            disabled={toggleVisibility.isPending}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            {providerModels.length > 3 && (
+                <div className="flex gap-2 pt-2">
+                    <button
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                            providerModels.forEach((model) => {
+                                if (!model.isEnabled) {
+                                    toggleVisibility.mutate({
+                                        modelId: model.id,
+                                        isEnabled: true,
+                                    });
+                                }
+                            });
+                        }}
+                    >
+                        Enable all
+                    </button>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <button
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                            providerModels.forEach((model) => {
+                                if (model.isEnabled) {
+                                    toggleVisibility.mutate({
+                                        modelId: model.id,
+                                        isEnabled: false,
+                                    });
+                                }
+                            });
+                        }}
+                    >
+                        Disable all
+                    </button>
                 </div>
             )}
         </div>

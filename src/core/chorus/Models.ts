@@ -335,20 +335,53 @@ export async function saveModelAndDefaultConfig(
         promptPricePerToken?: number;
         completionPricePerToken?: number;
     },
+    options?: {
+        preserveIsEnabled?: boolean;
+    },
 ): Promise<void> {
-    // insert or replace is important. this way I can have a refresh where Ollama / LM studio models are set to disabled if they're not running, and enabled if they are
-    await db.execute(
-        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-            model.id,
-            model.displayName,
-            model.isEnabled ? 1 : 0,
-            model.supportedAttachmentTypes,
-            model.isInternal ? 1 : 0,
-            pricing?.promptPricePerToken ?? null,
-            pricing?.completionPricePerToken ?? null,
-        ],
-    );
+    // By default, preserve user's visibility preferences when updating existing models
+    const preserveIsEnabled = options?.preserveIsEnabled ?? true;
+
+    if (preserveIsEnabled) {
+        // Check if model already exists and get its current is_enabled state
+        const existingModel = await db.select<{ is_enabled: number }[]>(
+            "SELECT is_enabled FROM models WHERE id = ?",
+            [model.id],
+        );
+
+        const isEnabled =
+            existingModel.length > 0
+                ? existingModel[0].is_enabled === 1
+                : model.isEnabled;
+
+        await db.execute(
+            "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                model.id,
+                model.displayName,
+                isEnabled ? 1 : 0,
+                model.supportedAttachmentTypes,
+                model.isInternal ? 1 : 0,
+                pricing?.promptPricePerToken ?? null,
+                pricing?.completionPricePerToken ?? null,
+            ],
+        );
+    } else {
+        // Use the provided isEnabled value (useful for local models that should be disabled when not running)
+        await db.execute(
+            "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                model.id,
+                model.displayName,
+                model.isEnabled ? 1 : 0,
+                model.supportedAttachmentTypes,
+                model.isInternal ? 1 : 0,
+                pricing?.promptPricePerToken ?? null,
+                pricing?.completionPricePerToken ?? null,
+            ],
+        );
+    }
+
     await db.execute(
         "INSERT OR REPLACE INTO model_configs (id, display_name, author, model_id, system_prompt) VALUES (?, ?, ?, ?, ?)",
         [model.id, modelConfigDisplayName, "system", model.id, ""],
@@ -469,13 +502,13 @@ export async function downloadKimiModels(
             return 0;
         }
 
-        const body: {
+        const body = (await response.json()) as {
             object: string;
             data: Array<{
                 id: string;
                 supports_image_in?: boolean;
             }>;
-        } = await response.json();
+        };
 
         const models = Array.isArray(body.data) ? body.data : [];
 
@@ -484,12 +517,7 @@ export async function downloadKimiModels(
             return 0;
         }
 
-        // Disable existing Kimi models
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'kimi::%'",
-        );
-
-        // Add/update models from API
+        // Add/update models from API (preserving user's visibility preferences)
         await Promise.all(
             models.map((model) => {
                 const supportsImages = model.supports_image_in === true;
@@ -507,6 +535,8 @@ export async function downloadKimiModels(
                         isInternal: false,
                     },
                     model.id,
+                    undefined,
+                    { preserveIsEnabled: true }, // Preserve user's visibility preferences
                 );
             }),
         );
@@ -548,6 +578,8 @@ export async function downloadOllamaModels(db: Database): Promise<void> {
                 isInternal: false,
             },
             `${model.name} (Ollama)`,
+            undefined,
+            { preserveIsEnabled: false }, // Local models should reflect server availability
         );
     }
 }
@@ -584,6 +616,8 @@ export async function downloadLMStudioModels(db: Database): Promise<void> {
                     isInternal: false,
                 },
                 `${model.id} (LM Studio)`,
+                undefined,
+                { preserveIsEnabled: false }, // Local models should reflect server availability
             );
         }
     } catch (error) {

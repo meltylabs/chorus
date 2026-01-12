@@ -366,24 +366,6 @@ export function useRefreshLMStudioModels() {
     });
 }
 
-export function useRefreshKimiModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshKimiModels"] as const,
-        mutationFn: async () => {
-            const apiKeys = await getApiKeys();
-            if (apiKeys.kimi) {
-                await Models.downloadKimiModels(db, apiKeys.kimi);
-            }
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
 export function useRefreshModels() {
     const refreshOpenRouterModels = useRefreshOpenRouterModels();
     const refreshOllamaModels = useRefreshOllamaModels();
@@ -472,4 +454,58 @@ export function useCreateModelConfig() {
             );
         },
     });
+}
+
+export function useToggleModelVisibility() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["toggleModelVisibility"] as const,
+        mutationFn: async ({
+            modelId,
+            isEnabled,
+        }: {
+            modelId: string;
+            isEnabled: boolean;
+        }) => {
+            await db.execute("UPDATE models SET is_enabled = ? WHERE id = ?", [
+                isEnabled ? 1 : 0,
+                modelId,
+            ]);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(modelQueries.list());
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshKimiModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshKimiModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            if (apiKeys.kimi) {
+                await Models.downloadKimiModels(db, apiKeys.kimi);
+            }
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useModelsForProvider(providerPrefix: string) {
+    const modelsQuery = useModels();
+    const models = modelsQuery.data?.filter((m) =>
+        m.id.startsWith(`${providerPrefix}::`),
+    );
+    return {
+        ...modelsQuery,
+        data: models,
+    };
 }
