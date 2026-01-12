@@ -450,18 +450,34 @@ export async function downloadKimiModels(
         return 0;
     }
 
-    const client = new OpenAI({
-        apiKey: apiKey,
-        baseURL: "https://api.moonshot.cn/v1",
-        dangerouslyAllowBrowser: true,
-    });
-
     try {
-        const modelList = await client.models.list();
-        const models: OpenAI.Model[] = [];
-        for await (const model of modelList) {
-            models.push(model);
+        // Moonshot's /models endpoint is OpenAI-compatible and returns:
+        // { object: "list", data: [{ id, context_length, supports_image_in, ... }, ...] }
+        // Using fetch here avoids any SDK iterator behavior differences.
+        const response = await fetch("https://api.moonshot.cn/v1/models", {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+            },
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error(
+                `Failed to fetch Kimi models: HTTP ${response.status} ${response.statusText} - ${text}`,
+            );
+            return 0;
         }
+
+        const body: {
+            object: string;
+            data: Array<{
+                id: string;
+                supports_image_in?: boolean;
+            }>;
+        } = await response.json();
+
+        const models = Array.isArray(body.data) ? body.data : [];
 
         if (models.length === 0) {
             console.warn("No Kimi models returned from API");
@@ -476,13 +492,17 @@ export async function downloadKimiModels(
         // Add/update models from API
         await Promise.all(
             models.map((model) => {
-                // Kimi models support text, images, and webpages
+                const supportsImages = model.supports_image_in === true;
+
+                // Kimi models support text and webpages; only some support images
                 return saveModelAndDefaultConfig(
                     db,
                     {
                         id: `kimi::${model.id}`,
                         displayName: model.id,
-                        supportedAttachmentTypes: ["text", "image", "webpage"],
+                        supportedAttachmentTypes: supportsImages
+                            ? ["text", "image", "webpage"]
+                            : ["text", "webpage"],
                         isEnabled: true,
                         isInternal: false,
                     },

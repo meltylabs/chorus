@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fetch } from "@tauri-apps/plugin-http";
 import { StreamResponseParams } from "../Models";
 import { IProvider } from "./IProvider";
 import { canProceedWithProvider } from "@core/utilities/ProxyUtils";
@@ -27,15 +28,6 @@ export class ProviderKimi implements IProvider {
         }
 
         const baseURL = customBaseUrl || "https://api.moonshot.cn/v1";
-
-        const client = new OpenAI({
-            baseURL,
-            apiKey: apiKeys.kimi,
-            defaultHeaders: {
-                ...(additionalHeaders ?? {}),
-            },
-            dangerouslyAllowBrowser: true,
-        });
 
         // Kimi supports images for the k2 models
         const imageSupport = modelName.includes("vision");
@@ -80,14 +72,83 @@ export class ProviderKimi implements IProvider {
         const chunks: OpenAI.ChatCompletionChunk[] = [];
 
         try {
-            const stream = await client.chat.completions.create(streamParams);
+            // Use Tauri's HTTP plugin to avoid browser CORS for Moonshot.
+            // NOTE: this expects the endpoint to support SSE streaming when `stream: true`.
+            const response = await fetch(`${baseURL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiKeys.kimi}`,
+                    "Content-Type": "application/json",
+                    ...(additionalHeaders ?? {}),
+                },
+                body: JSON.stringify(streamParams),
+            });
 
-            for await (const chunk of stream) {
-                chunks.push(chunk);
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    `Kimi API error: HTTP ${response.status} ${response.statusText} - ${text}`,
+                );
+            }
 
-                // Handle content chunks
-                if (chunk.choices[0]?.delta?.content) {
-                    onChunk(chunk.choices[0].delta.content);
+            // Read server-sent events stream and emit text deltas.
+            // We keep a minimal "chunk-like" structure for existing tool-call parsing.
+            if (!response.body) {
+                const text = await response.text();
+                throw new Error(
+                    `Kimi API error: missing response body for streaming request - ${text}`,
+                );
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let buffer = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    break;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+
+                // SSE events are separated by blank lines
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() ?? "";
+
+                for (const part of parts) {
+                    const lines = part
+                        .split("\n")
+                        .map((l) => l.trim())
+                        .filter(Boolean);
+
+                    for (const line of lines) {
+                        if (!line.startsWith("data:")) {
+                            continue;
+                        }
+
+                        const data = line.slice("data:".length).trim();
+                        if (data === "[DONE]") {
+                            break;
+                        }
+
+                        let parsed: OpenAI.ChatCompletionChunk | undefined;
+                        try {
+                            parsed = JSON.parse(
+                                data,
+                            ) as OpenAI.ChatCompletionChunk;
+                        } catch {
+                            // Ignore non-JSON data lines
+                            continue;
+                        }
+
+                        chunks.push(parsed);
+
+                        const delta = parsed.choices?.[0]?.delta;
+                        if (delta?.content) {
+                            onChunk(delta.content);
+                        }
+                    }
                 }
             }
 
