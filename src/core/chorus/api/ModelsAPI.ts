@@ -74,6 +74,7 @@ type ModelConfigDBRow = {
 // Track whether we've attempted to refresh OpenRouter models within
 // the current session, and store the promise if a download is in progress.
 let openRouterDownloadPromise: Promise<number> | null = null;
+let kimiDownloadPromise: Promise<number> | null = null;
 
 function readModel(row: ModelDBRow): Models.Model {
     return {
@@ -122,6 +123,16 @@ export async function fetchModelConfigs() {
             await openRouterDownloadPromise;
             // Keep the promise stored so subsequent calls know it completed
             // (we don't clear it to prevent re-downloads within the session)
+        }
+    }
+
+    // Fetch Kimi models if we haven't already and the user has a Kimi API key.
+    if (apiKeys.kimi) {
+        if (kimiDownloadPromise) {
+            await kimiDownloadPromise;
+        } else {
+            kimiDownloadPromise = Models.downloadKimiModels(db, apiKeys.kimi);
+            await kimiDownloadPromise;
         }
     }
 
@@ -355,10 +366,29 @@ export function useRefreshLMStudioModels() {
     });
 }
 
+export function useRefreshKimiModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshKimiModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            if (apiKeys.kimi) {
+                await Models.downloadKimiModels(db, apiKeys.kimi);
+            }
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
 export function useRefreshModels() {
     const refreshOpenRouterModels = useRefreshOpenRouterModels();
     const refreshOllamaModels = useRefreshOllamaModels();
     const refreshLMStudioModels = useRefreshLMStudioModels();
+    const refreshKimiModels = useRefreshKimiModels();
     return useMutation({
         mutationKey: ["refreshAllModels"] as const,
         mutationFn: async () => {
@@ -366,6 +396,7 @@ export function useRefreshModels() {
                 refreshOpenRouterModels.mutateAsync(),
                 refreshOllamaModels.mutateAsync(),
                 refreshLMStudioModels.mutateAsync(),
+                refreshKimiModels.mutateAsync(),
             ]);
         },
     });

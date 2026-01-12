@@ -18,19 +18,6 @@ export class ProviderKimi implements IProvider {
     }: StreamResponseParams) {
         const modelName = modelConfig.modelId.split("::")[1];
 
-        // Validate supported models
-        const supportedModels = [
-            "kimi-k2",
-            "kimi-k2-thinking",
-            "moonshot-v1-8k",
-            "moonshot-v1-32k",
-            "moonshot-v1-128k",
-        ];
-
-        if (!supportedModels.includes(modelName)) {
-            throw new Error(`Unsupported Kimi model: ${modelName}`);
-        }
-
         const { canProceed, reason } = canProceedWithProvider("kimi", apiKeys);
 
         if (!canProceed) {

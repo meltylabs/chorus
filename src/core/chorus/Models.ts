@@ -21,6 +21,7 @@ import { ProviderKimi } from "./ModelProviders/ProviderKimi";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
+import OpenAI from "openai";
 
 /// ------------------------------------------------------------------------------------------------
 /// Basic Types
@@ -435,6 +436,67 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
     );
 
     return openRouterModels.length;
+}
+
+/**
+ * Downloads models from Kimi (Moonshot AI) to refresh the database.
+ */
+export async function downloadKimiModels(
+    db: Database,
+    apiKey: string,
+): Promise<number> {
+    if (!apiKey) {
+        console.warn("No Kimi API key provided, skipping model download");
+        return 0;
+    }
+
+    const client = new OpenAI({
+        apiKey: apiKey,
+        baseURL: "https://api.moonshot.ai/v1",
+        dangerouslyAllowBrowser: true,
+    });
+
+    try {
+        const modelList = await client.models.list();
+        const models: OpenAI.Model[] = [];
+        for await (const model of modelList) {
+            models.push(model);
+        }
+
+        if (models.length === 0) {
+            console.warn("No Kimi models returned from API");
+            return 0;
+        }
+
+        // Disable existing Kimi models
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'kimi::%'",
+        );
+
+        // Add/update models from API
+        await Promise.all(
+            models.map((model) => {
+                // Kimi models support text, images, and webpages
+                return saveModelAndDefaultConfig(
+                    db,
+                    {
+                        id: `kimi::${model.id}`,
+                        displayName: model.id,
+                        supportedAttachmentTypes: ["text", "image", "webpage"],
+                        isEnabled: true,
+                        isInternal: false,
+                    },
+                    model.id,
+                );
+            }),
+        );
+
+        console.log(`Downloaded ${models.length} Kimi models`);
+        return models.length;
+    } catch (error) {
+        console.error("Failed to fetch Kimi models:", error);
+        return 0;
+    }
 }
 
 /**
