@@ -77,95 +77,54 @@ export class ProviderKimi implements IProvider {
             ];
         }
 
-        // Convert tools to OpenAI format
-        const openaiTools: OpenAI.ChatCompletionTool[] | undefined =
-            tools?.map((tool) => ({
-                type: "function" as const,
-                function: {
-                    name: `${tool.toolsetName}__${tool.name}`,
-                    description: tool.description,
-                    parameters: tool.inputSchema,
-                },
-            }));
-
         const streamParams: OpenAI.ChatCompletionCreateParamsStreaming = {
             model: modelName,
             messages,
             stream: true,
-            // Kimi doesn't support tool_choice: "required", only "auto" or "none"
-            ...(openaiTools &&
-                openaiTools.length > 0 && {
-                    tools: openaiTools,
-                    tool_choice: "auto" as const,
-                }),
         };
+
+        // Add tools definitions using the utility function
+        if (tools && tools.length > 0) {
+            streamParams.tools =
+                OpenAICompletionsAPIUtils.convertToolDefinitions(tools);
+            // Kimi doesn't support tool_choice: "required", only "auto" or "none"
+            streamParams.tool_choice = "auto";
+        }
+
+        const chunks: OpenAI.ChatCompletionChunk[] = [];
 
         try {
             const stream = await client.chat.completions.create(streamParams);
 
-            let fullContent = "";
-            const toolCalls: Array<{
-                id: string;
-                name: string;
-                arguments: string;
-            }> = [];
-
             for await (const chunk of stream) {
-                const delta = chunk.choices[0]?.delta;
+                chunks.push(chunk);
 
                 // Handle content chunks
-                if (delta?.content) {
-                    fullContent += delta.content;
-                    onChunk(delta.content);
-                }
-
-                // Handle tool call chunks
-                if (delta?.tool_calls) {
-                    for (const toolCallDelta of delta.tool_calls) {
-                        const index = toolCallDelta.index;
-
-                        // Initialize tool call if needed
-                        if (!toolCalls[index]) {
-                            toolCalls[index] = {
-                                id: toolCallDelta.id || "",
-                                name: toolCallDelta.function?.name || "",
-                                arguments: "",
-                            };
-                        }
-
-                        // Accumulate tool call data
-                        if (toolCallDelta.id) {
-                            toolCalls[index].id = toolCallDelta.id;
-                        }
-                        if (toolCallDelta.function?.name) {
-                            toolCalls[index].name = toolCallDelta.function.name;
-                        }
-                        if (toolCallDelta.function?.arguments) {
-                            toolCalls[index].arguments +=
-                                toolCallDelta.function.arguments;
-                        }
-                    }
+                if (chunk.choices[0]?.delta?.content) {
+                    onChunk(chunk.choices[0].delta.content);
                 }
             }
 
-            // Convert tool calls to UserToolCall format
-            const userToolCalls =
-                toolCalls.length > 0
-                    ? toolCalls.map((tc) => {
-                          const [toolsetName, toolName] = tc.name.split("__");
-                          return {
-                              id: tc.id,
-                              toolsetName: toolsetName || "",
-                              toolName: toolName || tc.name,
-                              input: tc.arguments,
-                          };
-                      })
-                    : undefined;
+            // Convert tool calls using the utility function
+            const toolCalls = OpenAICompletionsAPIUtils.convertToolCalls(
+                chunks,
+                tools ?? [],
+            );
+
+            // Extract usage data from the last chunk if available
+            const lastChunk = chunks[chunks.length - 1];
+            const usageData = lastChunk?.usage
+                ? {
+                      prompt_tokens: lastChunk.usage.prompt_tokens,
+                      completion_tokens: lastChunk.usage.completion_tokens,
+                      total_tokens: lastChunk.usage.total_tokens,
+                  }
+                : undefined;
 
             await onComplete(
-                fullContent || undefined,
-                userToolCalls,
                 undefined,
+                toolCalls.length > 0 ? toolCalls : undefined,
+                usageData,
             );
         } catch (error: unknown) {
             console.error("[ProviderKimi] Error:", error);
