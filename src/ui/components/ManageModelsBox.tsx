@@ -359,6 +359,7 @@ export function ManageModelsBox({
         ollama: false,
         lmstudio: false,
         openrouter: false,
+        kimi: false,
     });
     const listRef = useRef<HTMLDivElement>(null);
 
@@ -445,9 +446,10 @@ export function ManageModelsBox({
     const refreshLMStudio = ModelsAPI.useRefreshLMStudioModels();
     const refreshOllama = ModelsAPI.useRefreshOllamaModels();
     const refreshOpenRouter = ModelsAPI.useRefreshOpenRouterModels();
+    const refreshKimi = ModelsAPI.useRefreshKimiModels();
 
     const handleRefreshProviders = async (
-        provider: "ollama" | "lmstudio" | "openrouter",
+        provider: "ollama" | "lmstudio" | "openrouter" | "kimi",
     ) => {
         setSpinningProviders((prev) => ({ ...prev, [provider]: true }));
         try {
@@ -457,6 +459,8 @@ export function ManageModelsBox({
                 await refreshLMStudio.mutateAsync();
             } else if (provider === "openrouter") {
                 await refreshOpenRouter.mutateAsync();
+            } else if (provider === "kimi") {
+                await refreshKimi.mutateAsync();
             }
         } finally {
             setTimeout(() => {
@@ -803,6 +807,26 @@ export function ManageModelsBox({
                             onAddApiKey={handleAddApiKey}
                             groupId="kimi"
                             showCost={showCost}
+                            refreshButton={
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void handleRefreshProviders("kimi");
+                                    }}
+                                    className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
+                                    title="Refresh Kimi models"
+                                >
+                                    <RefreshCcwIcon
+                                        className={`w-3 h-3 ${
+                                            spinningProviders["kimi"]
+                                                ? "animate-spin"
+                                                : ""
+                                        }`}
+                                    />
+                                    <span className="text-sm">Refresh</span>
+                                </button>
+                            }
                         />
                     )}
                     {modelGroups.directByProvider.perplexity.length > 0 && (

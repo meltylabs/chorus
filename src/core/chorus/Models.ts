@@ -452,7 +452,7 @@ export async function downloadKimiModels(
 
     const client = new OpenAI({
         apiKey: apiKey,
-        baseURL: "https://api.moonshot.ai/v1",
+        baseURL: "https://api.moonshot.cn/v1",
         dangerouslyAllowBrowser: true,
     });
 

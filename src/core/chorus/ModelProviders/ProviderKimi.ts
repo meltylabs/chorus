@@ -38,8 +38,7 @@ export class ProviderKimi implements IProvider {
         });
 
         // Kimi supports images for the k2 models
-        const imageSupport =
-            modelName === "kimi-k2" || modelName === "kimi-k2-thinking";
+        const imageSupport = modelName.includes("vision");
 
         // Kimi supports tool calls (but tool_choice doesn't support "required")
         const functionSupport = true;
