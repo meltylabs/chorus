@@ -34,7 +34,7 @@ pub fn migrations() -> Vec<Migration> {
             sql: r#"
                 -- Delete any rows with null ids
                 DELETE FROM chats WHERE id IS NULL;
-                
+
                 -- Create new tables with NOT NULL constraint
                 CREATE TABLE chats_new (
                     id TEXT NOT NULL PRIMARY KEY,
@@ -69,7 +69,7 @@ pub fn migrations() -> Vec<Migration> {
                 );
 
                 -- Copy existing data
-                INSERT INTO messages_new 
+                INSERT INTO messages_new
                 SELECT * FROM messages;
 
                 -- Drop old table and rename new one
@@ -96,7 +96,7 @@ pub fn migrations() -> Vec<Migration> {
 
                 -- Insert default models
                 INSERT INTO models (id, name, type, api_key, model_id, system_prompt, request_template, is_enabled) VALUES
-                ('claude', 'Claude 3.5 Sonnet', 'anthropic', NULL, 'claude-3-5-sonnet-20241022', 'You are a helpful AI assistant. Please provide clear and concise responses.', 
+                ('claude', 'Claude 3.5 Sonnet', 'anthropic', NULL, 'claude-3-5-sonnet-20241022', 'You are a helpful AI assistant. Please provide clear and concise responses.',
                     '{
                         "model": "claude-3-5-sonnet-20241022",
                         "max_tokens": 8192,
@@ -164,12 +164,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: "
                 -- Add updated_at column to chats table
                 ALTER TABLE chats ADD COLUMN updated_at DATETIME;
-                
+
                 -- Initialize updated_at with created_at for existing rows
                 UPDATE chats SET updated_at = created_at WHERE updated_at IS NULL;
-                
+
                 -- Create trigger to automatically update updated_at
-                CREATE TRIGGER IF NOT EXISTS update_chats_timestamp 
+                CREATE TRIGGER IF NOT EXISTS update_chats_timestamp
                 AFTER UPDATE ON chats
                 BEGIN
                     UPDATE chats SET updated_at = CURRENT_TIMESTAMP
@@ -177,7 +177,7 @@ pub fn migrations() -> Vec<Migration> {
                 END;
 
                 -- Also update updated_at when a new message is added
-                CREATE TRIGGER IF NOT EXISTS update_chats_timestamp_on_message 
+                CREATE TRIGGER IF NOT EXISTS update_chats_timestamp_on_message
                 AFTER INSERT ON messages
                 BEGIN
                     UPDATE chats SET updated_at = CURRENT_TIMESTAMP
@@ -192,7 +192,7 @@ pub fn migrations() -> Vec<Migration> {
             sql: "
                 -- Add pinned column to chats table with NOT NULL constraint and default to false
                 ALTER TABLE chats ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT 0;
-                
+
                 -- Create index for faster querying of pinned chats
                 CREATE INDEX IF NOT EXISTS idx_chats_pinned ON chats(pinned);
             ",
@@ -289,8 +289,8 @@ pub fn migrations() -> Vec<Migration> {
             sql: r#"
                 -- Insert new Gemini Thinking model
                 INSERT INTO models (
-                    id, name, type, api_key, model_id, 
-                    system_prompt, request_template, 
+                    id, name, type, api_key, model_id,
+                    system_prompt, request_template,
                     is_enabled, display_order, is_selected, short_name
                 ) VALUES (
                     'gemini-thinking',
@@ -312,7 +312,7 @@ pub fn migrations() -> Vec<Migration> {
                 );
 
                 -- Update display order of other models if needed
-                UPDATE models 
+                UPDATE models
                 SET display_order = CASE id
                     WHEN 'claude' THEN 1
                     WHEN 'gpt' THEN 2
@@ -378,12 +378,12 @@ pub fn migrations() -> Vec<Migration> {
             description: "set default enabled state for Gemini and Perplexity models",
             sql: r#"
                 -- Enable Gemini models
-                UPDATE models SET is_enabled = 1 
-                WHERE type = 'gemini' 
+                UPDATE models SET is_enabled = 1
+                WHERE type = 'gemini'
                 AND model_id IN ('gemini-2.0-flash-exp', 'gemini-2.0-flash-thinking-exp');
 
                 -- Enable Perplexity models
-                UPDATE models SET is_enabled = 1 
+                UPDATE models SET is_enabled = 1
                 WHERE type = 'perplexity';
             "#,
             kind: MigrationKind::Up,
@@ -393,11 +393,11 @@ pub fn migrations() -> Vec<Migration> {
             description: "set Gemini Flash 2.0 as selected instead of Thinking",
             sql: r#"
                 -- Deselect Gemini Flash Thinking
-                UPDATE models SET is_selected = 0 
+                UPDATE models SET is_selected = 0
                 WHERE model_id = 'gemini-2.0-flash-thinking-exp';
 
                 -- Select Gemini Flash 2.0
-                UPDATE models SET is_selected = 1 
+                UPDATE models SET is_selected = 1
                 WHERE model_id = 'gemini-2.0-flash-exp';
             "#,
             kind: MigrationKind::Up,
@@ -623,7 +623,7 @@ JOIN temp_message_sets ms
                 ALTER TABLE models ADD COLUMN server_url TEXT;
 
                 -- Set default server URL for LM Studio models
-                UPDATE models 
+                UPDATE models
                 SET server_url = 'http://localhost:1234/v1'
                 WHERE type = 'lmstudio';
             "#,
@@ -640,7 +640,7 @@ JOIN temp_message_sets ms
                 BEGIN
                     -- First delete all messages associated with the chat
                     DELETE FROM messages WHERE chat_id = OLD.id;
-                    
+
                     -- Then delete all message_sets associated with the chat
                     DELETE FROM message_sets WHERE chat_id = OLD.id;
                 END;
@@ -833,7 +833,7 @@ JOIN temp_message_sets ms
                         UNION ALL
                         SELECT 'webpage'
                         WHERE NOT EXISTS (
-                            SELECT 1 
+                            SELECT 1
                             FROM json_each(supported_attachment_types)
                             WHERE value = 'webpage'
                         )
@@ -917,7 +917,7 @@ JOIN temp_message_sets ms
             kind: MigrationKind::Up,
             sql: r#"
                 -- Update the display name of the old Perplexity model
-                UPDATE model_configs 
+                UPDATE model_configs
                 SET display_name = 'Perplexity Llama 3.1 (Deprecated)'
                 WHERE id = 'perplexity::llama-3.1-sonar-huge-128k-online';
             "#,
@@ -931,7 +931,7 @@ JOIN temp_message_sets ms
                 ALTER TABLE models ADD COLUMN is_deprecated BOOLEAN NOT NULL DEFAULT 0;
 
                 -- Mark the old Perplexity model as deprecated
-                UPDATE models 
+                UPDATE models
                 SET is_deprecated = 1
                 WHERE id = 'perplexity::llama-3.1-sonar-huge-128k-online';
             "#,
@@ -1012,7 +1012,7 @@ JOIN temp_message_sets ms
                     ('system', 'google::gemini-2.0-flash', 'google::gemini-2.0-flash', 'Gemini 2.0 Flash', '', 0);
 
                 -- Update the display name of the experimental model
-                UPDATE models 
+                UPDATE models
                 SET display_name = 'Gemini 2.0 Flash (Experimental)'
                 WHERE id = 'google::gemini-2.0-flash-exp';
 
@@ -1097,15 +1097,15 @@ If the user has vision mode enabled, whenever they send a message, the system wi
                 -- Update selected_model_config_ids to use new gemini flash model instead of experimental version
                 UPDATE app_metadata
                 SET value = json_array(
-                    CASE 
+                    CASE
                         WHEN json_extract(value, '$[0]') = 'google::gemini-2.0-flash-exp' THEN 'google::gemini-2.0-flash'
                         ELSE json_extract(value, '$[0]')
                     END,
-                    CASE 
+                    CASE
                         WHEN json_extract(value, '$[1]') = 'google::gemini-2.0-flash-exp' THEN 'google::gemini-2.0-flash'
                         ELSE json_extract(value, '$[1]')
                     END,
-                    CASE 
+                    CASE
                         WHEN json_extract(value, '$[2]') = 'google::gemini-2.0-flash-exp' THEN 'google::gemini-2.0-flash'
                         ELSE json_extract(value, '$[2]')
                     END
@@ -1148,11 +1148,11 @@ If the user has vision mode enabled, whenever they send a message, the system wi
                     INSERT OR REPLACE INTO projects (id, name) VALUES ('quick-chat', 'Ambient Chat');
 
                 -- add project_id column to chats table
-                
+
                     ALTER TABLE chats ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default';
 
                     UPDATE chats SET project_id = 'quick-chat' WHERE quick_chat = 1;
-                
+
                     -- On insert make sure the referenced project exists.
                     CREATE TRIGGER verify_chats_project_id_insert
                     BEFORE INSERT ON chats
@@ -1210,12 +1210,12 @@ If the user has vision mode enabled, whenever they send a message, the system wi
                 AFTER INSERT ON messages
                 FOR EACH ROW
                 BEGIN
-                    UPDATE messages 
+                    UPDATE messages
                     SET selected = 1
                     WHERE id = NEW.id
                     AND (
-                        SELECT COUNT(*) 
-                        FROM messages 
+                        SELECT COUNT(*)
+                        FROM messages
                         WHERE message_set_id = NEW.message_set_id
                     ) = 1;
                 END;
@@ -1227,7 +1227,7 @@ If the user has vision mode enabled, whenever they send a message, the system wi
                 FOR EACH ROW
                 WHEN OLD.selected = 1
                 BEGIN
-                    UPDATE messages 
+                    UPDATE messages
                     SET selected = 1
                     WHERE id = (
                         SELECT id
@@ -1572,7 +1572,7 @@ If the user has vision mode enabled, whenever they send a message, the system wi
             kind: MigrationKind::Up,
             sql: r#"
                 -- Update quick_chat_model_config_id to Ambient Claude for everyone
-                INSERT OR REPLACE INTO app_metadata (key, value) 
+                INSERT OR REPLACE INTO app_metadata (key, value)
                 VALUES ('quick_chat_model_config_id', '24711c64-725c-4bdd-b5eb-65fe1dbfcde8');
             "#,
         },
@@ -1655,7 +1655,7 @@ You have full access to bash commands on the user''s computer. If you write a ba
             description: "reset quick chat model config to claude 3.7 sonnet, since we're getting rid of the picker",
             kind: MigrationKind::Up,
             sql: r#"
-                INSERT OR REPLACE INTO app_metadata (key, value) 
+                INSERT OR REPLACE INTO app_metadata (key, value)
                 VALUES ('quick_chat_model_config_id', '24711c64-725c-4bdd-b5eb-65fe1dbfcde8');
             "#,
         },
@@ -1697,11 +1697,11 @@ You have full access to bash commands on the user''s computer. If you write a ba
                 WITH RECURSIVE MessageHierarchy AS (
                     -- Base case: get root messages (no parent)
                     SELECT id, 0 as level
-                    FROM message_sets 
+                    FROM message_sets
                     WHERE parent_id IS NULL
-                    
+
                     UNION ALL
-                    
+
                     -- Recursive case: get children
                     SELECT m.id, mh.level + 1
                     FROM message_sets m
@@ -1767,7 +1767,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     0);
 
                 -- Update quick_chat_model_config_id to Ambient Gemini
-                INSERT OR REPLACE INTO app_metadata (key, value) 
+                INSERT OR REPLACE INTO app_metadata (key, value)
                 VALUES ('quick_chat_model_config_id', 'google::ambient-gemini-2.5-pro-preview-03-25');
             "#,
         },
@@ -1972,7 +1972,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
             sql: r#"
                 -- Add is_new_chat column to chats table
                 ALTER TABLE chats ADD COLUMN is_new_chat BOOLEAN NOT NULL DEFAULT 0;
-                
+
                 -- Create trigger to automatically set is_new_chat to false when messages are added
                 CREATE TRIGGER set_chat_not_new_on_message
                 AFTER INSERT ON messages
@@ -1980,15 +1980,15 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     UPDATE chats SET is_new_chat = 0
                     WHERE id = NEW.chat_id;
                 END;
-                
+
                 -- Create index for faster querying of new chats
                 CREATE INDEX IF NOT EXISTS idx_chats_is_new_chat ON chats(is_new_chat);
-                
+
                 -- Enforce that there is only one new chat for each type
                 CREATE UNIQUE INDEX one_new_chat ON chats(is_new_chat, quick_chat) WHERE is_new_chat = 1 AND quick_chat = 0;
                 CREATE UNIQUE INDEX one_new_quick_chat ON chats(is_new_chat, quick_chat) WHERE is_new_chat = 1 AND quick_chat = 1;
-                
-                -- Delete old "empty" chats with no messages 
+
+                -- Delete old "empty" chats with no messages
                 DELETE FROM chats WHERE id NOT IN (SELECT DISTINCT chat_id FROM messages);
             "#,
         },
@@ -2001,11 +2001,11 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 DROP TRIGGER IF EXISTS update_chats_timestamp;
 
                 -- Recreate the update_chats_timestamp_on_message trigger
-                -- This got erased by the messages table rename in Migration 17 
+                -- This got erased by the messages table rename in Migration 17
                 -- Drop the trigger first if it exists to ensure clean recreation
                 DROP TRIGGER IF EXISTS update_chats_timestamp_on_message;
 
-                CREATE TRIGGER update_chats_timestamp_on_message 
+                CREATE TRIGGER update_chats_timestamp_on_message
                 AFTER INSERT ON messages
                 BEGIN
                     UPDATE chats SET updated_at = CURRENT_TIMESTAMP
@@ -2222,7 +2222,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
             kind: MigrationKind::Up,
             sql: r#"
                 ALTER TABLE model_configs ADD COLUMN new_until DATETIME;
-                
+
                 -- Set new_until for deepseek r1 0528 to June 10
                 UPDATE model_configs
                 SET new_until = '2025-06-10 00:00:00'
@@ -2286,7 +2286,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
-                
+
                 -- Create index on chat_id for faster lookups
                 CREATE INDEX idx_saved_model_configs_chats_chat_id ON saved_model_configs_chats(chat_id);
             "#,
@@ -2306,7 +2306,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
             sql: r#"
                 -- Add gc_prototype_chat column to chats table with default value of 0 (not a group chat)
                 ALTER TABLE chats ADD COLUMN gc_prototype_chat BOOLEAN NOT NULL DEFAULT 0;
-                
+
                 -- Create gc_prototype_messages table for group chat messages
                 CREATE TABLE gc_prototype_messages (
                     chat_id TEXT NOT NULL,
@@ -2320,12 +2320,12 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     promoted_from_message_id TEXT,
                     PRIMARY KEY (chat_id, id)
                 );
-                
+
                 -- Create indexes for gc_prototype_messages
                 CREATE INDEX idx_gc_prototype_messages_chat_created ON gc_prototype_messages(chat_id, created_at);
                 CREATE INDEX idx_gc_prototype_messages_thread_root ON gc_prototype_messages(thread_root_message_id);
                 CREATE INDEX idx_gc_prototype_messages_promoted_from ON gc_prototype_messages(promoted_from_message_id);
-                
+
                 -- Create gc_prototype_conductors table for group chat conductor feature
                 CREATE TABLE gc_prototype_conductors (
                     chat_id TEXT NOT NULL,
@@ -2336,7 +2336,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (chat_id, scope_id)
                 );
-                
+
                 -- Create index for efficient lookups of active conductors
                 CREATE INDEX idx_gc_prototype_conductors_active ON gc_prototype_conductors(chat_id, is_active);
             "#,
@@ -2372,7 +2372,7 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 );
 
                 -- Add default permission settings to custom_toolsets
-                ALTER TABLE custom_toolsets ADD COLUMN default_permission TEXT NOT NULL DEFAULT 'ask' 
+                ALTER TABLE custom_toolsets ADD COLUMN default_permission TEXT NOT NULL DEFAULT 'ask'
                     CHECK (default_permission IN ('always_allow', 'always_deny', 'ask'));
             "#,
         },
@@ -2552,6 +2552,28 @@ You have full access to bash commands on the user''''s computer. If you write a 
             sql: r#"
                 UPDATE chats SET total_cost_usd = 0.0 WHERE total_cost_usd IS NULL;
                 UPDATE projects SET total_cost_usd = 0.0 WHERE total_cost_usd IS NULL;
+            "#,
+        },
+        Migration {
+            version: 139,
+            description: "add Kimi (Moonshot AI) models",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Add Kimi K2 model (flagship model, 256k context)
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('kimi::kimi-k2', 'Kimi K2', 1, '["text", "image", "webpage"]');
+
+                -- Add default config for Kimi K2
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default) VALUES
+                    ('system', 'kimi::kimi-k2', 'kimi::kimi-k2', 'Kimi K2', '', 0);
+
+                -- Add Kimi K2 Thinking model (reasoning variant)
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('kimi::kimi-k2-thinking', 'Kimi K2 Thinking', 1, '["text", "image", "webpage"]');
+
+                -- Add default config for Kimi K2 Thinking
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default) VALUES
+                    ('system', 'kimi::kimi-k2-thinking', 'kimi::kimi-k2-thinking', 'Kimi K2 Thinking', '', 0);
             "#,
         },
     ];

@@ -17,6 +17,7 @@ import { ollamaClient } from "./OllamaClient";
 import { ProviderOllama } from "./ModelProviders/ProviderOllama";
 import { ProviderLMStudio } from "./ModelProviders/ProviderLMStudio";
 import { ProviderGrok } from "./ModelProviders/ProviderGrok";
+import { ProviderKimi } from "./ModelProviders/ProviderKimi";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
@@ -157,6 +158,7 @@ export type ApiKeys = {
     openrouter?: string;
     google?: string;
     grok?: string;
+    kimi?: string;
 };
 
 export type Model = {
@@ -242,6 +244,7 @@ export type ProviderName =
     | "ollama"
     | "lmstudio"
     | "grok"
+    | "kimi"
     | "meta";
 
 /**
@@ -296,6 +299,8 @@ function getProvider(providerName: string): IProvider {
             return new ProviderLMStudio();
         case "grok":
             return new ProviderGrok();
+        case "kimi":
+            return new ProviderKimi();
         default:
             throw new Error(`Unknown provider: ${providerName}`);
     }
@@ -613,6 +618,7 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     lmstudio: "context window", // best guess
     perplexity: "context window", // best guess
     ollama: "context window", // best guess
+    kimi: "context_length_exceeded",
 };
 
 /**

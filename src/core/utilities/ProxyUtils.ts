@@ -15,6 +15,7 @@ const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
     perplexity: "perplexity",
     openrouter: "openrouter",
     grok: "grok",
+    kimi: "kimi",
 };
 
 /**
@@ -27,6 +28,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
     perplexity: "Perplexity",
     openrouter: "OpenRouter",
     grok: "xAI",
+    kimi: "Moonshot AI",
 };
 
 /**

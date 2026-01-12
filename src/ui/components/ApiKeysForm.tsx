@@ -57,6 +57,12 @@ export default function ApiKeysForm({
             url: "https://console.x.ai/settings/keys",
         },
         {
+            id: "kimi",
+            name: "Moonshot AI (Kimi)",
+            placeholder: "sk-...",
+            url: "https://platform.moonshot.ai/console/api-keys",
+        },
+        {
             id: "firecrawl",
             name: "Firecrawl",
             placeholder: "fc-...",

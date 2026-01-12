@@ -1,7 +1,7 @@
 import { getProviderName, ProviderName } from "@core/chorus/Models";
 import { OPENROUTER_CUSTOM_PROVIDER_LOGOS } from "@ui/lib/models";
 import { cn } from "@ui/lib/utils";
-import { BoxIcon } from "lucide-react";
+import { BoxIcon, MoonIcon } from "lucide-react";
 import {
     RiAnthropicFill,
     RiOpenaiFill,
@@ -64,6 +64,8 @@ export function ProviderLogo({
                         className="w-4 h-4 dark:invert"
                     />
                 );
+            case "kimi":
+                return <MoonIcon className="w-4 h-4" />;
             case "openrouter":
                 if (modelId && modelId in OPENROUTER_CUSTOM_PROVIDER_LOGOS) {
                     return getLogoComponent(
