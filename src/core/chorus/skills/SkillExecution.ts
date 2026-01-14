@@ -354,19 +354,21 @@ export function prepareScriptExecution(
     }
 
     // Check if interpreter is allowed
+    // We've verified script.interpreter is defined above, so we can safely use it
+    const interpreter = script.interpreter;
     // Extract just the interpreter name (e.g., "npx ts-node" -> "ts-node")
-    const interpreterName = script.interpreter.split(" ").pop() ?? script.interpreter;
+    const interpreterName = interpreter.split(" ").pop() ?? interpreter;
     const isAllowed = allowedInterpreters.some(
         (allowed) =>
-            allowed === script.interpreter ||
+            allowed === interpreter ||
             allowed === interpreterName ||
-            script.interpreter.includes(allowed)
+            interpreter.includes(allowed)
     );
 
     if (!isAllowed) {
         return {
             success: false,
-            error: `Interpreter "${script.interpreter}" is not allowed. Allowed interpreters: ${allowedInterpreters.join(", ")}`,
+            error: `Interpreter "${interpreter}" is not allowed. Allowed interpreters: ${allowedInterpreters.join(", ")}`,
             skillName,
             scriptName,
         };
