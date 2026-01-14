@@ -23,6 +23,7 @@ import { ToolsetGithub } from "./toolsets/github";
 // import { ToolsetNotion } from "./toolsets/notion";
 // import { ToolsetFiles } from "./toolsets/files";
 // import { ToolsetMessages } from "./toolsets/messages";
+import { ToolsetSkills } from "./toolsets/skills";
 
 export class ToolsetsManager {
     private _builtInToolsets: Toolset[] = [];
@@ -44,6 +45,7 @@ export class ToolsetsManager {
                 // new ToolsetSlack(),
                 // new ToolsetMessages(),
                 // new ToolsetNotion(),
+                new ToolsetSkills(),
             ];
         }
 
