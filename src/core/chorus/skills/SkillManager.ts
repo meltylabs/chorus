@@ -11,11 +11,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { getStore } from "@core/infra/Store";
 import { ISkill, ISkillState } from "./SkillTypes";
-import {
-    discoverSkills,
-    refreshSkills as refreshDiscovery,
-    clearSkillCache,
-} from "./SkillDiscovery";
+import { discoverSkills, clearSkillCache } from "./SkillDiscovery";
 
 /**
  * Storage schema for persisted skill states.
