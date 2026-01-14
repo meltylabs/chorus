@@ -43,8 +43,10 @@ import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import * as ModelConfigChatAPI from "@core/chorus/api/ModelConfigChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
 import SkillAutocomplete from "./SkillAutocomplete";
+import ActiveSkillsIndicator from "./ActiveSkillsIndicator";
 import { executeSkill } from "@core/chorus/skills/SkillExecution";
 import { ISkill } from "@core/chorus/skills/SkillTypes";
+import { activeSkillsActions } from "@core/infra/ActiveSkillsStore";
 
 const DEFAULT_CHAT_INPUT_ID = "default-chat-input";
 const REPLY_CHAT_INPUT_ID = "reply-chat-input";
@@ -380,19 +382,24 @@ export function ChatInput({
             const result = executeSkill(skill.id);
 
             if (result.success) {
+                // Add to active skills for this chat
+                activeSkillsActions.addSkill(chatId, {
+                    id: skill.id,
+                    name: skill.metadata.name,
+                    description: skill.metadata.description,
+                    invocationType: "manual",
+                });
+
                 toast.success(`Loaded skill: ${skill.metadata.name}`, {
                     description: "Skill instructions are now available",
                 });
-                // The skill content is now loaded and will be used in the next AI response
-                // For now, we show a toast confirmation
-                // In a more advanced implementation, we could add the skill to a conversation context
             } else {
                 toast.error(`Failed to load skill: ${skill.metadata.name}`, {
                     description: result.error,
                 });
             }
         },
-        [setDraft]
+        [setDraft, chatId]
     );
 
     // --------------------------------------------------------------------------
@@ -576,6 +583,8 @@ export function ChatInput({
                  }`
             }
         >
+            {/* Active skills indicator */}
+            <ActiveSkillsIndicator chatId={chatId} />
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
@@ -802,6 +811,8 @@ export function ChatInput({
 
     return isQuickChatWindow ? (
         <div className="absolute bottom-2 left-2 right-2">
+            {/* Active skills indicator for quick chat */}
+            <ActiveSkillsIndicator chatId={chatId} />
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
