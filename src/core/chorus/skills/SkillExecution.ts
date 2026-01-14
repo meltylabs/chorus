@@ -260,3 +260,156 @@ export function handleSkillCommand(
     // Execute the skill
     return executeSkill(skillName);
 }
+
+/**
+ * Result of script execution preparation.
+ */
+export interface IScriptExecutionResult {
+    success: boolean;
+    command?: string;
+    workingDirectory?: string;
+    error?: string;
+    skillName: string;
+    scriptName: string;
+}
+
+/**
+ * Default allowed interpreters.
+ */
+const DEFAULT_ALLOWED_INTERPRETERS = ["python3", "bash", "node"];
+
+/**
+ * Prepares a skill script for execution.
+ * Validates the script and returns the command to run.
+ *
+ * @param skillName - Name of the skill containing the script
+ * @param scriptName - Name or relative path of the script
+ * @param args - Optional arguments to pass to the script
+ * @param allowedInterpreters - List of allowed interpreters (default: python3, bash, node)
+ * @returns Script execution preparation result
+ */
+export function prepareScriptExecution(
+    skillName: string,
+    scriptName: string,
+    args: string[] = [],
+    allowedInterpreters: string[] = DEFAULT_ALLOWED_INTERPRETERS
+): IScriptExecutionResult {
+    const manager = getSkillManager();
+
+    // Check if manager is initialized
+    if (!manager.isInitialized()) {
+        return {
+            success: false,
+            error: "Skill system not initialized",
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Get the skill
+    const skill = manager.getSkill(skillName);
+    if (!skill) {
+        return {
+            success: false,
+            error: `Skill "${skillName}" not found`,
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Check if skill is enabled
+    const state = manager.getSkillState(skillName);
+    if (!state?.enabled) {
+        return {
+            success: false,
+            error: `Skill "${skillName}" is disabled`,
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Find the script
+    const script = skill.scripts.find(
+        (s) => s.name === scriptName || s.relativePath === scriptName
+    );
+
+    if (!script) {
+        const availableScripts = skill.scripts.map((s) => s.name).join(", ");
+        return {
+            success: false,
+            error: `Script "${scriptName}" not found in skill "${skillName}". Available scripts: ${availableScripts || "none"}`,
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Check interpreter
+    if (!script.interpreter) {
+        return {
+            success: false,
+            error: `Unknown script type for "${scriptName}". Supported extensions: .py, .sh, .bash, .js, .ts, .rb, .pl`,
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Check if interpreter is allowed
+    // Extract just the interpreter name (e.g., "npx ts-node" -> "ts-node")
+    const interpreterName = script.interpreter.split(" ").pop() ?? script.interpreter;
+    const isAllowed = allowedInterpreters.some(
+        (allowed) =>
+            allowed === script.interpreter ||
+            allowed === interpreterName ||
+            script.interpreter.includes(allowed)
+    );
+
+    if (!isAllowed) {
+        return {
+            success: false,
+            error: `Interpreter "${script.interpreter}" is not allowed. Allowed interpreters: ${allowedInterpreters.join(", ")}`,
+            skillName,
+            scriptName,
+        };
+    }
+
+    // Build the command
+    // Escape arguments to prevent injection
+    const escapedArgs = args.map((arg) => {
+        // Simple escaping - wrap in quotes and escape existing quotes
+        const escaped = arg.replace(/"/g, '\\"');
+        return `"${escaped}"`;
+    });
+
+    const command = `${script.interpreter} "${script.absolutePath}"${escapedArgs.length > 0 ? " " + escapedArgs.join(" ") : ""}`;
+
+    return {
+        success: true,
+        command,
+        workingDirectory: skill.folderPath,
+        skillName,
+        scriptName,
+    };
+}
+
+/**
+ * Gets available scripts for a skill.
+ *
+ * @param skillName - Name of the skill
+ * @returns Array of script info, or error message
+ */
+export function getSkillScripts(
+    skillName: string
+): { scripts: ISkill["scripts"] } | { error: string } {
+    const manager = getSkillManager();
+
+    if (!manager.isInitialized()) {
+        return { error: "Skill system not initialized" };
+    }
+
+    const skill = manager.getSkill(skillName);
+    if (!skill) {
+        return { error: `Skill "${skillName}" not found` };
+    }
+
+    return { scripts: skill.scripts };
+}

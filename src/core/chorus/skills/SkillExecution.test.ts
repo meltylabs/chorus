@@ -30,6 +30,8 @@ import {
     getSkillsForSystemPrompt,
     getManualSkills,
     handleSkillCommand,
+    prepareScriptExecution,
+    getSkillScripts,
 } from "./SkillExecution";
 import { SkillManager } from "./SkillManager";
 import { discoverSkills } from "./SkillDiscovery";
@@ -296,6 +298,159 @@ describe("SkillExecution", () => {
 
             expect(result).not.toBeNull();
             expect(result?.success).toBe(true);
+        });
+    });
+
+    describe("prepareScriptExecution", () => {
+        it("should return error when manager not initialized", () => {
+            const result = prepareScriptExecution("code-review", "lint.sh");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain("not initialized");
+        });
+
+        it("should return error for non-existent skill", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("non-existent", "script.sh");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Skill "non-existent" not found');
+        });
+
+        it("should return error for non-existent script", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("code-review", "missing.sh");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Script "missing.sh" not found');
+            expect(result.error).toContain("lint.sh"); // Available scripts
+        });
+
+        it("should return error for disabled skill", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+            await manager.disableSkill("code-review");
+
+            const result = prepareScriptExecution("code-review", "lint.sh");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Skill "code-review" is disabled');
+        });
+
+        it("should return error for disallowed interpreter", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            // Try with only "python3" allowed, but script uses "bash"
+            const result = prepareScriptExecution(
+                "code-review",
+                "lint.sh",
+                [],
+                ["python3"]
+            );
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain("not allowed");
+            expect(result.error).toContain("python3");
+        });
+
+        it("should return command for valid script", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("code-review", "lint.sh");
+
+            expect(result.success).toBe(true);
+            expect(result.command).toContain("bash");
+            expect(result.command).toContain("lint.sh");
+            expect(result.workingDirectory).toBe("/path/to/code-review");
+        });
+
+        it("should find script by relative path", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("code-review", "scripts/lint.sh");
+
+            expect(result.success).toBe(true);
+        });
+
+        it("should include arguments in command", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("code-review", "lint.sh", [
+                "--fix",
+                "src/",
+            ]);
+
+            expect(result.success).toBe(true);
+            expect(result.command).toContain('"--fix"');
+            expect(result.command).toContain('"src/"');
+        });
+
+        it("should escape quotes in arguments", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = prepareScriptExecution("code-review", "lint.sh", [
+                'file with "quotes"',
+            ]);
+
+            expect(result.success).toBe(true);
+            expect(result.command).toContain('\\"quotes\\"');
+        });
+    });
+
+    describe("getSkillScripts", () => {
+        it("should return error when not initialized", () => {
+            const result = getSkillScripts("code-review");
+
+            expect("error" in result).toBe(true);
+            if ("error" in result) {
+                expect(result.error).toContain("not initialized");
+            }
+        });
+
+        it("should return error for non-existent skill", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = getSkillScripts("non-existent");
+
+            expect("error" in result).toBe(true);
+            if ("error" in result) {
+                expect(result.error).toContain("not found");
+            }
+        });
+
+        it("should return scripts for valid skill", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = getSkillScripts("code-review");
+
+            expect("scripts" in result).toBe(true);
+            if ("scripts" in result) {
+                expect(result.scripts.length).toBe(1);
+                expect(result.scripts[0].name).toBe("lint.sh");
+            }
+        });
+
+        it("should return empty array for skill without scripts", async () => {
+            const manager = SkillManager.getInstance();
+            await manager.initialize();
+
+            const result = getSkillScripts("test-skill");
+
+            expect("scripts" in result).toBe(true);
+            if ("scripts" in result) {
+                expect(result.scripts.length).toBe(0);
+            }
         });
     });
 });
