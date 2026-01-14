@@ -467,7 +467,7 @@ export class Toolset {
         }
     >();
     private servers: MCPServer[] = [];
-    private _status: ToolsetStatus = { status: "stopped" };
+    protected _status: ToolsetStatus = { status: "stopped" };
 
     constructor(
         public readonly name: string, // used to namespace tool names. alphanumeric only, must not contain special characters.

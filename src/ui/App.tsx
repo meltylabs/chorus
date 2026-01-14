@@ -77,6 +77,7 @@ import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
 import * as ChatAPI from "@core/chorus/api/ChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import { SkillManager } from "@core/chorus/skills/SkillManager";
 
 scan({
     enabled: true,
@@ -1008,6 +1009,19 @@ function App() {
         return () => {
             window.removeEventListener("beforeunload", handleBeforeUnload);
         };
+    }, []);
+
+    // Initialize skill discovery system
+    useEffect(() => {
+        const initSkills = async () => {
+            try {
+                const manager = SkillManager.getInstance();
+                await manager.initialize();
+            } catch (error) {
+                console.error("[Skills] Failed to initialize:", error);
+            }
+        };
+        void initSkills();
     }, []);
 
     return (

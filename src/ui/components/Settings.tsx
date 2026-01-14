@@ -87,6 +87,8 @@ import { dialogActions } from "@core/infra/DialogStore";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import { PermissionsTab } from "./PermissionsTab";
 import { cn } from "@ui/lib/utils";
+import SkillsSettings from "./SkillsSettings";
+import { Sparkles } from "lucide-react";
 
 type ToolsetFormProps = {
     toolset: CustomToolsetConfig;
@@ -1097,6 +1099,7 @@ export type SettingsTabId =
     | "api-keys"
     | "quick-chat"
     | "connections"
+    | "skills"
     | "permissions"
     | "base-url"
     | "docs";
@@ -1113,6 +1116,7 @@ const TABS: Record<SettingsTabId, TabConfig> = {
     "api-keys": { label: "API Keys", icon: Key },
     "quick-chat": { label: "Ambient Chat", icon: Fullscreen },
     connections: { label: "Connections", icon: PlugIcon },
+    skills: { label: "Skills", icon: Sparkles },
     permissions: { label: "Tool Permissions", icon: ShieldCheckIcon },
     "base-url": { label: "Base URL", icon: Globe },
     docs: { label: "Documentation", icon: BookOpen },
@@ -1873,6 +1877,8 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                             <ToolsTab />
                         </div>
                     )}
+
+                    {activeTab === "skills" && <SkillsSettings />}
 
                     {activeTab === "permissions" && (
                         <div className="max-w-2xl">

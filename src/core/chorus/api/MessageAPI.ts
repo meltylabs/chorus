@@ -58,6 +58,7 @@ import {
     fetchModelConfigById,
 } from "./ModelsAPI";
 import { Attachment, AttachmentDBRow, readAttachment } from "./AttachmentsAPI";
+import { getSkillsForSystemPrompt } from "../skills/SkillExecution";
 
 // Query keys objects are based on https://tkdodo.eu/blog/effective-react-query-keys
 // although also consider this approach: https://tkdodo.eu/blog/leveraging-the-query-function-context
@@ -1285,6 +1286,9 @@ export function useStreamMessagePart() {
                 queryKey: appMetadataKeys.appMetadata(),
                 queryFn: () => fetchAppMetadata(),
             });
+            // Get skills for system prompt injection (skills set to "auto" invocation mode)
+            const skills = getSkillsForSystemPrompt();
+
             const modelConfig = Prompts.injectSystemPrompts(modelConfigRaw, {
                 toolsetInfo: toolsets.map((toolset) => ({
                     displayName: toolset.displayName,
@@ -1293,6 +1297,7 @@ export function useStreamMessagePart() {
                 })),
                 isInProject: project.id !== "default",
                 universalSystemPrompt: appMetadata["universal_system_prompt"],
+                skills,
             });
 
             const customBaseUrl = await getCustomBaseUrl();
@@ -1364,9 +1369,14 @@ export function useStreamMessageLegacy() {
                 queryKey: appMetadataKeys.appMetadata(),
                 queryFn: () => fetchAppMetadata(),
             });
+
+            // Get skills for system prompt injection (skills set to "auto" invocation mode)
+            const skills = getSkillsForSystemPrompt();
+
             const modelConfig = Prompts.injectSystemPrompts(modelConfigRaw, {
                 isInProject: project.id !== "default",
                 universalSystemPrompt: appMetadata["universal_system_prompt"],
+                skills,
             });
 
             const projectContext = await getProjectContext(project.id, chatId);
