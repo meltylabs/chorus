@@ -42,6 +42,11 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import * as ModelConfigChatAPI from "@core/chorus/api/ModelConfigChatAPI";
 import * as ProjectAPI from "@core/chorus/api/ProjectAPI";
+import SkillAutocomplete from "./SkillAutocomplete";
+import ActiveSkillsIndicator from "./ActiveSkillsIndicator";
+import { executeSkill } from "@core/chorus/skills/SkillExecution";
+import { ISkill } from "@core/chorus/skills/SkillTypes";
+import { activeSkillsActions } from "@core/infra/ActiveSkillsStore";
 
 const DEFAULT_CHAT_INPUT_ID = "default-chat-input";
 const REPLY_CHAT_INPUT_ID = "reply-chat-input";
@@ -157,6 +162,10 @@ export function ChatInput({
         useState(false);
 
     const [isAnimatingToBottom, setIsAnimatingToBottom] = useState(false);
+
+    // Skill autocomplete state
+    const [showSkillAutocomplete, setShowSkillAutocomplete] = useState(false);
+    const skillQuery = draft?.startsWith("/") ? draft.slice(1) : "";
 
     const placeholderText = isReply ? "Reply..." : "Ask me anything...";
 
@@ -363,6 +372,36 @@ export function ChatInput({
         }
     };
 
+    // Handle skill selection from autocomplete
+    const handleSkillSelect = useCallback(
+        (skill: ISkill) => {
+            setShowSkillAutocomplete(false);
+            setDraft(""); // Clear input
+
+            // Execute the skill
+            const result = executeSkill(skill.id);
+
+            if (result.success) {
+                // Add to active skills for this chat
+                activeSkillsActions.addSkill(chatId, {
+                    id: skill.id,
+                    name: skill.metadata.name,
+                    description: skill.metadata.description,
+                    invocationType: "manual",
+                });
+
+                toast.success(`Loaded skill: ${skill.metadata.name}`, {
+                    description: "Skill instructions are now available",
+                });
+            } else {
+                toast.error(`Failed to load skill: ${skill.metadata.name}`, {
+                    description: result.error,
+                });
+            }
+        },
+        [setDraft, chatId]
+    );
+
     // --------------------------------------------------------------------------
     // Model management
     // --------------------------------------------------------------------------
@@ -544,6 +583,8 @@ export function ChatInput({
                  }`
             }
         >
+            {/* Active skills indicator */}
+            <ActiveSkillsIndicator chatId={chatId} />
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
@@ -556,15 +597,36 @@ export function ChatInput({
                 onSubmit={handleSubmit}
                 className="flex flex-col w-full mx-auto relative"
             >
+                {/* Skill autocomplete dropdown */}
+                <SkillAutocomplete
+                    query={skillQuery}
+                    onSelect={handleSkillSelect}
+                    onDismiss={() => setShowSkillAutocomplete(false)}
+                    isVisible={showSkillAutocomplete}
+                />
                 <AutoExpandingTextarea
                     ref={inputRef}
                     value={draft}
                     onChange={(e) => {
-                        setDraft(e.target.value);
+                        const newValue = e.target.value;
+                        setDraft(newValue);
+                        // Show skill autocomplete when "/" is typed at start
+                        if (newValue.startsWith("/")) {
+                            setShowSkillAutocomplete(true);
+                        } else {
+                            setShowSkillAutocomplete(false);
+                        }
                     }}
                     onPaste={(e) => void handlePaste(e)}
                     rows={2}
                     onKeyDown={(e) => {
+                        // Don't submit if skill autocomplete is showing
+                        if (showSkillAutocomplete) {
+                            // Let SkillAutocomplete handle Enter, Escape, Arrow keys
+                            if (["Enter", "Escape", "ArrowUp", "ArrowDown", "Tab"].includes(e.key)) {
+                                return; // SkillAutocomplete will handle these
+                            }
+                        }
                         if (cautiousEnter) {
                             // Cautious mode: Cmd+Enter to submit
                             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -749,6 +811,8 @@ export function ChatInput({
 
     return isQuickChatWindow ? (
         <div className="absolute bottom-2 left-2 right-2">
+            {/* Active skills indicator for quick chat */}
+            <ActiveSkillsIndicator chatId={chatId} />
             <AttachmentDropArea
                 attachments={attachmentsQuery.data ?? []}
                 onFileDrop={fileDrop.mutate}
@@ -756,42 +820,65 @@ export function ChatInput({
                     removeAttachment.mutate({ attachmentId })
                 }
             />
-            <AutoExpandingTextarea
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => {
-                    setDraft(e.target.value);
-                }}
-                onPaste={(e) => handlePaste(e)}
-                rows={2}
-                onKeyDown={(e) => {
-                    if (cautiousEnter) {
-                        // Cautious mode: Cmd+Enter to submit
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                            e.preventDefault();
-                            handleSubmit(e);
+            <div className="relative">
+                {/* Skill autocomplete dropdown for quick chat */}
+                <SkillAutocomplete
+                    query={skillQuery}
+                    onSelect={handleSkillSelect}
+                    onDismiss={() => setShowSkillAutocomplete(false)}
+                    isVisible={showSkillAutocomplete}
+                />
+                <AutoExpandingTextarea
+                    ref={inputRef}
+                    value={draft}
+                    onChange={(e) => {
+                        const newValue = e.target.value;
+                        setDraft(newValue);
+                        // Show skill autocomplete when "/" is typed at start
+                        if (newValue.startsWith("/")) {
+                            setShowSkillAutocomplete(true);
+                        } else {
+                            setShowSkillAutocomplete(false);
                         }
-                    } else {
-                        // Normal mode: Enter to submit, Shift+Enter for newline
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
+                    }}
+                    onPaste={(e) => handlePaste(e)}
+                    rows={2}
+                    onKeyDown={(e) => {
+                        // Don't submit if skill autocomplete is showing
+                        if (showSkillAutocomplete) {
+                            // Let SkillAutocomplete handle Enter, Escape, Arrow keys
+                            if (["Enter", "Escape", "ArrowUp", "ArrowDown", "Tab"].includes(e.key)) {
+                                return; // SkillAutocomplete will handle these
+                            }
                         }
-                    }
-                }}
-                placeholder={placeholderText}
-                className={`ring-0 w-full rounded-xl bg-foreground/5 focus:shadow-sm
+                        if (cautiousEnter) {
+                            // Cautious mode: Cmd+Enter to submit
+                            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                        } else {
+                            // Normal mode: Enter to submit, Shift+Enter for newline
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                        }
+                    }}
+                    placeholder={placeholderText}
+                    className={`ring-0 w-full rounded-xl bg-foreground/5 focus:shadow-sm
                                 placeholder:text-foreground/50 px-3 !border-foreground/10 select-text
                                 max-h-[70vh] overflow-y-auto !p-2`}
-                autoFocus
-                onFocus={() =>
-                    inputActions.setFocusedInputId(
-                        isReply ? REPLY_CHAT_INPUT_ID : DEFAULT_CHAT_INPUT_ID,
-                    )
-                }
-                onBlur={() => inputActions.setFocusedInputId(null)}
-                tabIndex={1} // should be first item to get focus
-            />
+                    autoFocus
+                    onFocus={() =>
+                        inputActions.setFocusedInputId(
+                            isReply ? REPLY_CHAT_INPUT_ID : DEFAULT_CHAT_INPUT_ID,
+                        )
+                    }
+                    onBlur={() => inputActions.setFocusedInputId(null)}
+                    tabIndex={1} // should be first item to get focus
+                />
+            </div>
 
             {/* Helper text for Cmd+L */}
             {isNextFocus && (

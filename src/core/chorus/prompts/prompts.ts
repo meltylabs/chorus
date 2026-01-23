@@ -1,6 +1,7 @@
 /* eslint-disable no-useless-escape */
 import { ModelConfig } from "../Models";
 import { ToolsetStatus } from "../Toolsets";
+import { ISkill } from "../skills/SkillTypes";
 
 export const IDEA_INTERJECTION = `!! SYSTEM_MESSAGE !!
 Please generate several ideas.`;
@@ -308,6 +309,31 @@ The first user message will include the project_context, which may contain:
 </projects_instructions>
 `;
 
+export const SKILLS_SYSTEM_PROMPT = (skills: ISkill[]) => {
+    if (skills.length === 0) {
+        return "";
+    }
+
+    const skillDescriptions = skills
+        .map((s) => `- **${s.metadata.name}**: ${s.metadata.description}`)
+        .join("\n");
+
+    return `<skills_instructions>
+## Available Skills
+
+You have access to the following skills. When a user's request matches a skill's domain,
+you can invoke it to get detailed instructions.
+
+${skillDescriptions}
+
+To invoke a skill, use the \`skills_use\` tool with the skill name.
+Once invoked, the skill's detailed instructions will be provided to guide your response.
+
+Note: Only invoke skills when they're clearly relevant to the user's request.
+</skills_instructions>
+`;
+};
+
 export const PROJECTS_CONTEXT_PROMPT = (
     userContext: string,
     chatSummaries: string[] | undefined,
@@ -604,11 +630,13 @@ export function injectSystemPrompts(
         }[];
         isInProject?: boolean;
         universalSystemPrompt?: string;
+        skills?: ISkill[];
     },
 ): ModelConfig {
-    const { toolsetInfo, isInProject, universalSystemPrompt } = options ?? {
-        isInProject: false,
-    };
+    const { toolsetInfo, isInProject, universalSystemPrompt, skills } =
+        options ?? {
+            isInProject: false,
+        };
 
     return {
         ...modelConfigIn,
@@ -616,6 +644,9 @@ export function injectSystemPrompts(
             CHORUS_SYSTEM_PROMPT,
             universalSystemPrompt || UNIVERSAL_SYSTEM_PROMPT_DEFAULT,
             ...(toolsetInfo ? [TOOLS_MODE_SYSTEM_PROMPT(toolsetInfo)] : []),
+            ...(skills && skills.length > 0
+                ? [SKILLS_SYSTEM_PROMPT(skills)]
+                : []),
             ...(isInProject ? [PROJECTS_SYSTEM_PROMPT] : []),
             ...(modelConfigIn.systemPrompt
                 ? [modelConfigIn.systemPrompt]
