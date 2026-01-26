@@ -1023,7 +1023,6 @@ export function useStreamMessagePart() {
             const chat = await queryClient.ensureQueryData(
                 chatQueries.detail(chatId),
             );
-            console.log(chat);
             const project = await queryClient.ensureQueryData(
                 projectQueries.detail(chat.projectId),
             );

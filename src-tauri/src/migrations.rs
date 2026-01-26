@@ -2554,5 +2554,24 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 UPDATE projects SET total_cost_usd = 0.0 WHERE total_cost_usd IS NULL;
             "#,
         },
+        Migration {
+            version: 139,
+            description: "add claude code provider models for using claude code subscription",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- Add Claude models via Claude Code CLI
+                -- These use the local Claude Code CLI and subscription instead of an API key
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('claude-code::claude-sonnet-4-5-20250929', 'Claude Sonnet 4.5 (via Claude Code)', 1, '["text", "webpage", "image", "pdf"]'),
+                    ('claude-code::claude-opus-4-20250514', 'Claude Opus 4 (via Claude Code)', 1, '["text", "webpage", "image", "pdf"]'),
+                    ('claude-code::claude-sonnet-4-20250514', 'Claude Sonnet 4 (via Claude Code)', 1, '["text", "webpage", "image", "pdf"]');
+
+                -- Add model configs for each variant
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default, new_until) VALUES
+                    ('system', 'claude-code::claude-sonnet-4-5-20250929', 'claude-code::claude-sonnet-4-5-20250929', 'Claude Sonnet 4.5 (via Claude Code)', '', 0, '2026-01-15 00:00:00'),
+                    ('system', 'claude-code::claude-opus-4-20250514', 'claude-code::claude-opus-4-20250514', 'Claude Opus 4 (via Claude Code)', '', 0, '2026-01-15 00:00:00'),
+                    ('system', 'claude-code::claude-sonnet-4-20250514', 'claude-code::claude-sonnet-4-20250514', 'Claude Sonnet 4 (via Claude Code)', '', 0, '2026-01-15 00:00:00');
+            "#,
+        },
     ];
 }

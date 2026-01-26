@@ -17,6 +17,7 @@ import { ollamaClient } from "./OllamaClient";
 import { ProviderOllama } from "./ModelProviders/ProviderOllama";
 import { ProviderLMStudio } from "./ModelProviders/ProviderLMStudio";
 import { ProviderGrok } from "./ModelProviders/ProviderGrok";
+import { ProviderClaudeCode } from "./ModelProviders/ProviderClaudeCode";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
@@ -242,7 +243,8 @@ export type ProviderName =
     | "ollama"
     | "lmstudio"
     | "grok"
-    | "meta";
+    | "meta"
+    | "claude-code";
 
 /**
  * Returns a human readable label for the provider
@@ -296,6 +298,8 @@ function getProvider(providerName: string): IProvider {
             return new ProviderLMStudio();
         case "grok":
             return new ProviderGrok();
+        case "claude-code":
+            return new ProviderClaudeCode();
         default:
             throw new Error(`Unknown provider: ${providerName}`);
     }
@@ -613,6 +617,7 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     lmstudio: "context window", // best guess
     perplexity: "context window", // best guess
     ollama: "context window", // best guess
+    "claude-code": "prompt is too long", // same as anthropic
 };
 
 /**

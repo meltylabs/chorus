@@ -454,6 +454,8 @@ pub fn run() {
             command::get_instance_name,
             command::write_file_async,
             command::get_file_metadata,
+            command::check_claude_code_available,
+            command::stream_claude_code_response,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

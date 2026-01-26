@@ -156,6 +156,7 @@ function ModelGroup({
     emptyState,
     onAddApiKey,
     groupId,
+    claudeCodeAvailable,
     showCost,
 }: {
     heading: React.ReactNode;
@@ -167,6 +168,7 @@ function ModelGroup({
     emptyState?: React.ReactNode;
     onAddApiKey: () => void;
     groupId?: string;
+    claudeCodeAvailable?: boolean;
     showCost: boolean;
 }) {
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
@@ -179,6 +181,11 @@ function ModelGroup({
             // Local models (ollama, lmstudio) don't require API keys
             if (provider === "ollama" || provider === "lmstudio") {
                 return false;
+            }
+
+            // Claude Code requires the CLI to be installed
+            if (provider === "claude-code") {
+                return !claudeCodeAvailable;
             }
 
             // If user has API key for this provider, allow it
@@ -196,7 +203,7 @@ function ModelGroup({
             // No API key for this provider - model is not allowed
             return true;
         },
-        [apiKeys],
+        [apiKeys, claudeCodeAvailable],
     );
 
     return (
@@ -250,19 +257,26 @@ function ModelGroup({
                             </div>
                             <div className="flex items-center gap-1">
                                 {isModelNotAllowed(m) ? (
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        className="text-accent-foreground h-auto p-0 px-1.5"
-                                        onClick={(
-                                            e: React.MouseEvent<HTMLButtonElement>,
-                                        ) => {
-                                            e.stopPropagation();
-                                            onAddApiKey();
-                                        }}
-                                    >
-                                        Add API Key
-                                    </Button>
+                                    getProviderName(m.modelId) ===
+                                    "claude-code" ? (
+                                        <span className="text-sm text-muted-foreground">
+                                            Install Claude Code CLI
+                                        </span>
+                                    ) : (
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            className="text-accent-foreground h-auto p-0 px-1.5"
+                                            onClick={(
+                                                e: React.MouseEvent<HTMLButtonElement>,
+                                            ) => {
+                                                e.stopPropagation();
+                                                onAddApiKey();
+                                            }}
+                                        >
+                                            Add API Key
+                                        </Button>
+                                    )
                                 ) : (
                                     <>
                                         <p className="text-sm text-muted-foreground opacity-0 group-data-[selected=true]:opacity-100 transition-opacity">
@@ -340,6 +354,9 @@ export function ManageModelsBox({
     const modelConfigs = ModelsAPI.useModelConfigs();
     const showOpenRouter = AppMetadataAPI.useShowOpenRouter();
     const setShowOpenRouterMutation = AppMetadataAPI.useSetShowOpenRouter();
+    const claudeCodeAvailableQuery = ModelsAPI.useClaudeCodeAvailable();
+    const claudeCodeAvailable =
+        claudeCodeAvailableQuery.data?.available ?? false;
     const settings = useSettings();
     const showCost = settings?.showCost ?? false;
 
@@ -498,6 +515,11 @@ export function ManageModelsBox({
             (m) => getProviderName(m.modelId) === "openrouter",
         );
 
+        // Claude Code models use the local Claude Code CLI subscription
+        const claudeCodeModels = systemModels.filter(
+            (m) => getProviderName(m.modelId) === "claude-code",
+        );
+
         // Direct provider models grouped by provider
         const directProviders = [
             "anthropic",
@@ -523,6 +545,7 @@ export function ManageModelsBox({
             custom: filterBySearch(userModels, searchTerms),
             local: filterBySearch(localModels, searchTerms),
             openrouter: filterBySearch(openrouterModels, searchTerms),
+            claudeCode: filterBySearch(claudeCodeModels, searchTerms),
             directByProvider,
         };
     }, [modelConfigs.data, searchQuery]);
@@ -740,6 +763,25 @@ export function ManageModelsBox({
                                     </div>
                                 ) : undefined
                             }
+                        />
+                    )}
+
+                    {/* Claude Code Models - uses local Claude Code subscription */}
+                    {modelGroups.claudeCode.length > 0 && (
+                        <ModelGroup
+                            heading={
+                                <div className="flex items-center justify-between w-full">
+                                    <span>Claude Code Subscription</span>
+                                </div>
+                            }
+                            models={modelGroups.claudeCode}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="claude-code"
+                            claudeCodeAvailable={claudeCodeAvailable}
+                            showCost={showCost}
                         />
                     )}
 

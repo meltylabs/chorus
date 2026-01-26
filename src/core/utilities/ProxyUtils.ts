@@ -55,8 +55,13 @@ export function canProceedWithProvider(
 ): CanProceedResult {
     const apiKeyField = PROVIDER_TO_API_KEY[providerKey];
 
-    // Local models (ollama, lmstudio) don't require API keys
-    if (providerKey === "ollama" || providerKey === "lmstudio") {
+    // Local models (ollama, lmstudio) and claude-code don't require API keys
+    // claude-code uses the local Claude Code CLI authentication
+    if (
+        providerKey === "ollama" ||
+        providerKey === "lmstudio" ||
+        providerKey === "claude-code"
+    ) {
         return { canProceed: true };
     }
 

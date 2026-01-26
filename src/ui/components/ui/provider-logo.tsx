@@ -77,6 +77,9 @@ export function ProviderLogo({
                         className="w-4 h-4 invert dark:invert-0"
                     />
                 );
+            case "claude-code":
+                // Claude Code uses Anthropic's Claude, so use the Anthropic logo
+                return <RiAnthropicFill className="w-4 h-4" />;
             default: {
                 // @ts-expect-error: creating unused variable to provide exhaustiveness check
                 const _unused: never = provider;
