@@ -75,7 +75,6 @@ export class ProviderClaudeCode implements IProvider {
         onError,
     }: StreamResponseParams): Promise<void> {
         const requestId = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
-
         const prompt = await this.formatConversationAsPrompt(llmConversation);
 
         // Extract model name from model ID like "claude-code::claude-sonnet-4-5-20250929"
@@ -83,9 +82,19 @@ export class ProviderClaudeCode implements IProvider {
         const model = modelName === "default" ? undefined : modelName;
 
         let unlisten: UnlistenFn | undefined;
-        let hasCompleted = false;
         let stderrContent = "";
         let hasReceivedContent = false;
+
+        // Track what text we've already emitted to compute deltas
+        // (Claude Code sends complete messages, not deltas)
+        let lastEmittedText = "";
+
+        let resolveStream: () => void;
+        let rejectStream: (error: Error) => void;
+        const streamingComplete = new Promise<void>((resolve, reject) => {
+            resolveStream = resolve;
+            rejectStream = reject;
+        });
 
         try {
             unlisten = await listen<TauriStreamEvent>(
@@ -98,51 +107,88 @@ export class ProviderClaudeCode implements IProvider {
                             const message = JSON.parse(
                                 payload.data,
                             ) as ClaudeCodeStreamMessage;
-                            const hadContent = this.handleStreamMessage(
-                                message,
-                                onChunk,
-                                onError,
-                            );
-                            if (hadContent) {
-                                hasReceivedContent = true;
+
+                            // Handle error results
+                            if (
+                                message.type === "result" &&
+                                message.subtype === "error"
+                            ) {
+                                rejectStream(
+                                    new Error(
+                                        message.error ||
+                                            "Claude Code returned an error",
+                                    ),
+                                );
+                                return;
+                            }
+
+                            // Process assistant messages - extract text and emit deltas
+                            if (
+                                message.type === "assistant" &&
+                                message.message?.content
+                            ) {
+                                const textParts: string[] = [];
+                                for (const block of message.message.content) {
+                                    if (
+                                        block.type === "text" &&
+                                        "text" in block
+                                    ) {
+                                        textParts.push(block.text);
+                                    }
+                                }
+
+                                if (textParts.length > 0) {
+                                    hasReceivedContent = true;
+                                    const fullText = textParts.join("");
+
+                                    // Compute delta - only emit NEW content
+                                    if (fullText.startsWith(lastEmittedText)) {
+                                        const delta = fullText.slice(
+                                            lastEmittedText.length,
+                                        );
+                                        if (delta) {
+                                            onChunk(delta);
+                                            lastEmittedText = fullText;
+                                        }
+                                    } else if (fullText) {
+                                        // Text changed completely (rare) - emit full text
+                                        onChunk(fullText);
+                                        lastEmittedText = fullText;
+                                    }
+                                }
                             }
                         } catch {
-                            // Not valid JSON, might be partial output
-                            console.warn(
-                                "Failed to parse Claude Code stream data:",
-                                payload.data,
-                            );
+                            // Ignore parse errors for non-JSON lines
                         }
                     } else if (payload.type === "error") {
-                        if (!hasCompleted) {
-                            hasCompleted = true;
-                            onError(payload.error || "Unknown error");
-                        }
+                        rejectStream(
+                            new Error(payload.error || "Unknown error"),
+                        );
                     } else if (payload.type === "stderr" && payload.data) {
                         stderrContent += payload.data;
                     } else if (payload.type === "done") {
-                        if (!hasCompleted) {
-                            hasCompleted = true;
-
-                            if (
-                                payload.exitCode !== undefined &&
-                                payload.exitCode !== 0
-                            ) {
-                                if (stderrContent && !hasReceivedContent) {
-                                    onError(
+                        if (
+                            payload.exitCode !== undefined &&
+                            payload.exitCode !== 0
+                        ) {
+                            if (stderrContent && !hasReceivedContent) {
+                                rejectStream(
+                                    new Error(
                                         stderrContent.trim() ||
                                             `Claude Code CLI exited with code ${payload.exitCode}`,
-                                    );
-                                } else if (!hasReceivedContent) {
-                                    onError(
+                                    ),
+                                );
+                            } else if (!hasReceivedContent) {
+                                rejectStream(
+                                    new Error(
                                         `Claude Code CLI exited with code ${payload.exitCode}`,
-                                    );
-                                } else {
-                                    void onComplete();
-                                }
+                                    ),
+                                );
                             } else {
-                                void onComplete();
+                                resolveStream();
                             }
+                        } else {
+                            resolveStream();
                         }
                     }
                 },
@@ -156,77 +202,17 @@ export class ProviderClaudeCode implements IProvider {
                 disableProjectContext: true,
             });
 
-            await new Promise<void>((resolve) => {
-                const checkInterval = setInterval(() => {
-                    if (hasCompleted) {
-                        clearInterval(checkInterval);
-                        resolve();
-                    }
-                }, 100);
-
-                // Timeout after 5 minutes
-                setTimeout(
-                    () => {
-                        if (!hasCompleted) {
-                            hasCompleted = true;
-                            clearInterval(checkInterval);
-                            onError("Request timed out after 5 minutes");
-                            resolve();
-                        }
-                    },
-                    5 * 60 * 1000,
-                );
-            });
+            await streamingComplete;
+            void onComplete();
+        } catch (error) {
+            onError(
+                error instanceof Error ? error.message : "Unknown error occurred",
+            );
         } finally {
-            // Clean up the event listener
             if (unlisten) {
                 unlisten();
             }
         }
-    }
-
-    private handleStreamMessage(
-        message: ClaudeCodeStreamMessage,
-        onChunk: (chunk: string) => void,
-        onError: (errorMessage: string) => void,
-    ): boolean {
-        if (message.type === "assistant" && message.message?.content) {
-            let hadContent = false;
-
-            for (const block of message.message.content) {
-                if (block.type === "text" && "text" in block) {
-                    onChunk(block.text);
-                    hadContent = true;
-                } else if (block.type === "tool_use" && "name" in block) {
-                    // Emit tool calls immediately as custom tags
-                    const toolBlock = block as {
-                        type: "tool_use";
-                        name: string;
-                        input?: Record<string, unknown>;
-                    };
-                    const input = toolBlock.input
-                        ? JSON.stringify(toolBlock.input, null, 2)
-                        : "";
-
-                    // Base64 encode the content to avoid HTML parsing issues
-                    const encodedInput = Buffer.from(input).toString("base64");
-
-                    const toolTag = `\n<tool-call name="${toolBlock.name}" data-input="${encodedInput}"></tool-call>\n`;
-
-                    // Emit as a tool-call tag that will be grouped by MessageMarkdown
-                    onChunk(toolTag);
-                    hadContent = true;
-                }
-            }
-            return hadContent;
-        }
-
-        if (message.type === "result" && message.subtype === "error") {
-            onError(message.error || "Claude Code returned an error");
-            return false;
-        }
-
-        return false;
     }
 
     private async formatConversationAsPrompt(

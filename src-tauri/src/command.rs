@@ -828,7 +828,6 @@ pub async fn stream_claude_code_response(
     use std::io::{BufRead, BufReader};
     use std::process::{Command, Stdio};
 
-    // Build the command
     let mut cmd = Command::new("claude");
     cmd.arg("-p") // Print mode (non-interactive)
         .arg("--output-format")
@@ -849,7 +848,6 @@ pub async fn stream_claude_code_response(
         }
     }
 
-    // Add model if specified
     if let Some(m) = model {
         cmd.arg("--model").arg(m);
     }
@@ -866,55 +864,44 @@ pub async fn stream_claude_code_response(
             .arg("You are a helpful general assistant. Answer questions directly and helpfully. Do not reference any specific project or codebase context.");
     }
 
-    // Add the prompt as the final argument
     cmd.arg(&prompt);
 
-    // Set up stdio
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    // Spawn the process
     let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn claude CLI: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-
     let request_id_clone = request_id.clone();
     let app_handle_clone = app_handle.clone();
 
-    // Spawn a thread to read stdout and emit events
+    // Spawn a thread to read stdout and emit final result only (no streaming to avoid freeze)
     std::thread::spawn(move || {
         let reader = BufReader::new(stdout);
+        let mut last_assistant_line: Option<String> = None;
 
+        // Read all lines, keep only the last assistant message
         for line in reader.lines() {
-            match line {
-                Ok(json_line) => {
-                    if !json_line.is_empty() {
-                        // Emit each JSON line as an event
-                        let _ = app_handle_clone.emit(
-                            &format!("claude-code-stream-{}", request_id_clone),
-                            serde_json::json!({
-                                "type": "data",
-                                "data": json_line
-                            })
-                        );
-                    }
-                }
-                Err(e) => {
-                    let _ = app_handle_clone.emit(
-                        &format!("claude-code-stream-{}", request_id_clone),
-                        serde_json::json!({
-                            "type": "error",
-                            "error": format!("Failed to read line: {}", e)
-                        })
-                    );
-                    break;
+            if let Ok(json_line) = line {
+                if json_line.contains("\"type\":\"assistant\"") {
+                    last_assistant_line = Some(json_line);
                 }
             }
         }
+
+        // Emit once at the end with the final content
+        if let Some(final_line) = last_assistant_line {
+            let _ = app_handle_clone.emit(
+                &format!("claude-code-stream-{}", request_id_clone),
+                serde_json::json!({
+                    "type": "data",
+                    "data": final_line
+                })
+            );
+        }
     });
 
-    // Spawn a thread to read stderr
     let request_id_clone2 = request_id.clone();
     let app_handle_clone2 = app_handle.clone();
 
@@ -940,13 +927,16 @@ pub async fn stream_claude_code_response(
         }
     });
 
-    // Wait for the process to complete in a separate task
+    // Wait for the process to complete in a regular thread (not spawn_blocking)
+    // to avoid potential thread pool issues
     let request_id_clone3 = request_id.clone();
     let app_handle_clone3 = app_handle.clone();
 
-    tauri::async_runtime::spawn_blocking(move || {
+    std::thread::spawn(move || {
         match child.wait() {
             Ok(status) => {
+                // Small delay to ensure stdout thread finishes emitting before done
+                std::thread::sleep(std::time::Duration::from_millis(50));
                 let _ = app_handle_clone3.emit(
                     &format!("claude-code-stream-{}", request_id_clone3),
                     serde_json::json!({
