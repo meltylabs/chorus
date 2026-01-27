@@ -131,6 +131,20 @@ export class ProviderGoogle implements IProvider {
             stream: true,
         };
 
+        // Add Gemini thinking parameters
+        const isGemini3 = googleModelName.includes("gemini-3");
+        const isGemini25 = googleModelName.includes("gemini-2.5");
+
+        if (isGemini3 && modelConfig.thinkingLevel) {
+            // Gemini 3 uses thinking_level parameter
+            (streamParams as Record<string, unknown>).thinking_level =
+                modelConfig.thinkingLevel;
+        } else if (isGemini25 && modelConfig.budgetTokens) {
+            // Gemini 2.5 uses thinking_budget parameter
+            (streamParams as Record<string, unknown>).thinking_budget =
+                modelConfig.budgetTokens;
+        }
+
         // Add tools definitions
         if (tools && tools.length > 0) {
             streamParams.tools =

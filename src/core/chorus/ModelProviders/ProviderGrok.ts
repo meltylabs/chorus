@@ -77,12 +77,19 @@ export class ProviderGrok implements IProvider {
 
         const streamParams: OpenAI.ChatCompletionCreateParamsStreaming & {
             include_reasoning: boolean;
+            reasoning_effort?: string;
         } = {
             model: modelName,
             messages,
             stream: true,
             include_reasoning: true,
         };
+
+        // Add reasoning_effort for Grok 3 Mini models
+        const isGrok3Mini = modelName.includes("grok-3-mini");
+        if (isGrok3Mini && modelConfig.reasoningEffort) {
+            streamParams.reasoning_effort = modelConfig.reasoningEffort;
+        }
 
         try {
             const stream = await client.chat.completions.create(streamParams);
