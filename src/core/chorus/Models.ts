@@ -354,10 +354,15 @@ export async function saveModelAndDefaultConfig(
  */
 export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
     db: Database,
+    apiKeys: ApiKeys,
 ): Promise<number> {
     await downloadOpenRouterModels(db);
     await downloadOllamaModels(db);
     await downloadLMStudioModels(db);
+    await downloadOpenAIModels(db, apiKeys);
+    await downloadAnthropicModels(db, apiKeys);
+    await downloadGoogleModels(db, apiKeys);
+    await downloadGrokModels(db, apiKeys);
     return 0;
 }
 
@@ -505,6 +510,280 @@ export async function downloadLMStudioModels(db: Database): Promise<void> {
             "UPDATE models SET is_enabled = 0 WHERE id LIKE 'lmstudio::%'",
         );
         throw error;
+    }
+}
+
+/**
+ * Downloads models from OpenAI to refresh the database.
+ * Uses OpenAI's native /v1/models API
+ */
+export async function downloadOpenAIModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openai::%'",
+        );
+
+        if (!apiKeys.openai) {
+            console.log("No OpenAI API key configured, skipping model download");
+            return;
+        }
+
+        const response = await fetch("https://api.openai.com/v1/models", {
+            headers: {
+                Authorization: `Bearer ${apiKeys.openai}`,
+            },
+        });
+
+        if (!response.ok) {
+            console.error("Failed to fetch OpenAI models");
+            return;
+        }
+
+        const { data: models } = (await response.json()) as {
+            data: {
+                id: string;
+                object: string;
+                created: number;
+                owned_by: string;
+            }[];
+        };
+
+        // Filter for chat completion models only
+        const chatModels = models.filter(
+            (model) =>
+                model.id.startsWith("gpt-") ||
+                model.id.startsWith("o1") ||
+                model.id.startsWith("o3") ||
+                model.id.startsWith("o4"),
+        );
+
+        for (const model of chatModels) {
+            // Determine image support based on model name
+            const supportsImages =
+                model.id.includes("gpt-4") ||
+                model.id.includes("gpt-5") ||
+                (model.id.includes("o") && !model.id.includes("mini"));
+
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `openai::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: supportsImages
+                        ? ["text", "image", "webpage"]
+                        : ["text", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading OpenAI models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openai::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from Anthropic to refresh the database.
+ * Uses Anthropic's native /v1/models API
+ */
+export async function downloadAnthropicModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'anthropic::%'",
+        );
+
+        if (!apiKeys.anthropic) {
+            console.log(
+                "No Anthropic API key configured, skipping model download",
+            );
+            return;
+        }
+
+        const response = await fetch("https://api.anthropic.com/v1/models", {
+            headers: {
+                "anthropic-version": "2023-06-01",
+                "x-api-key": apiKeys.anthropic,
+            },
+        });
+
+        if (!response.ok) {
+            console.error("Failed to fetch Anthropic models");
+            return;
+        }
+
+        const { data: models } = (await response.json()) as {
+            data: {
+                id: string;
+                created_at: string;
+                display_name: string;
+                type: string;
+            }[];
+            has_more: boolean;
+            first_id: string;
+            last_id: string;
+        };
+
+        for (const model of models) {
+            // All Claude models support images and PDFs
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `anthropic::${model.id}`,
+                    displayName: model.display_name,
+                    supportedAttachmentTypes: ["text", "image", "pdf", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.display_name,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Anthropic models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'anthropic::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from Google Gemini to refresh the database.
+ * Uses Google's native /v1beta/models API
+ */
+export async function downloadGoogleModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'google::%'",
+        );
+
+        if (!apiKeys.google) {
+            console.log("No Google API key configured, skipping model download");
+            return;
+        }
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKeys.google}`,
+        );
+
+        if (!response.ok) {
+            console.error("Failed to fetch Google models");
+            return;
+        }
+
+        const { models } = (await response.json()) as {
+            models: {
+                name: string;
+                baseModelId: string;
+                version: string;
+                displayName: string;
+                description: string;
+                inputTokenLimit: number;
+                outputTokenLimit: number;
+                supportedGenerationMethods: string[];
+                thinking?: boolean;
+            }[];
+            nextPageToken?: string;
+        };
+
+        // Filter for models that support generateContent
+        const chatModels = models.filter((model) =>
+            model.supportedGenerationMethods?.includes("generateContent"),
+        );
+
+        for (const model of chatModels) {
+            // Extract model ID from name (format: "models/gemini-...")
+            const modelId = model.name.replace("models/", "");
+
+            // Gemini models support text, image, and webpage
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `google::${modelId}`,
+                    displayName: model.displayName || modelId,
+                    supportedAttachmentTypes: ["text", "image", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.displayName || modelId,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Google models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'google::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from xAI Grok to refresh the database.
+ * Uses xAI's native /v1/models API
+ */
+export async function downloadGrokModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'grok::%'",
+        );
+
+        if (!apiKeys.grok) {
+            console.log("No Grok API key configured, skipping model download");
+            return;
+        }
+
+        const response = await fetch("https://api.x.ai/v1/models", {
+            headers: {
+                Authorization: `Bearer ${apiKeys.grok}`,
+            },
+        });
+
+        if (!response.ok) {
+            console.error("Failed to fetch xAI Grok models");
+            return;
+        }
+
+        const { data: models } = (await response.json()) as {
+            data: {
+                id: string;
+                object: string;
+                created: number;
+                owned_by: string;
+            }[];
+        };
+
+        for (const model of models) {
+            // Grok models support text and image
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `grok::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: ["text", "image", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading xAI Grok models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'grok::%'",
+        );
     }
 }
 

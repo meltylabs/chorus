@@ -1,142 +1,282 @@
-# Claude's Onboarding Doc
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What is Chorus?
 
-Chorus is a native Mac AI chat app that lets you chat with all the AIs.
+Chorus is a native Mac AI chat app that lets you chat with multiple AI models simultaneously.
 
-It lets you send one prompt and see responses from Claude, o3-pro, Gemini, etc. all at once.
-
-It's built with Tauri, React, TypeScript, TanStack Query, and a local sqlite database.
+It's built with Tauri (Rust), React, TypeScript, TanStack Query, and SQLite. The app sends one prompt and displays responses from Claude, o3-pro, Gemini, and other models side by side.
 
 Key features:
+- MCP (Model Context Protocol) support
+- Ambient chats (quick chats accessible from anywhere)
+- Projects (organized folders of chats)
+- Bring your own API keys
+- Multi-model comparison
 
--   MCP support
--   Ambient chats (start a chat from anywhere)
--   Projects
--   Bring your own API keys
+Most functionality lives in this repo. A separate Elixir backend at app.chorus.sh handles accounts, billing, and request proxying.
 
-Most of the functionality lives in this repo. There's also a backend that handles accounts, billing, and proxying the models' requests; that lives at app.chorus.sh and is written in Elixir.
+## Development Commands
 
-## Your role
+**Initial setup:**
+```bash
+pnpm run setup           # Install dependencies and initialize dev environment
+```
 
-Your role is to write code. You do NOT have access to the running app, so you cannot test the code. You MUST rely on me, the user, to test the code.
+**Development:**
+```bash
+pnpm run dev             # Start development instance (uses repo directory name)
+pnpm run workspace [name] # Run specific isolated instance with separate data directory
+```
 
-If I report a bug in your code, after you fix it, you should pause and ask me to verify that the bug is fixed.
+**Building:**
+```bash
+pnpm run build           # Compile TypeScript and build with Vite
+```
 
-You do not have full context on the project, so often you will need to ask me questions about how to proceed.
+**Testing:**
+```bash
+pnpm run test            # Run tests with Vitest
+```
 
-Don't be shy to ask questions -- I'm here to help you!
+**Linting and formatting:**
+```bash
+pnpm run lint            # Run ESLint
+pnpm run lint:fix        # Run ESLint with auto-fix
+pnpm run format          # Format all files with Prettier
+pnpm run format:check    # Check formatting without making changes
+pnpm run validate        # Run both linting and formatting checks
+pnpm run validate:fix    # Run both with auto-fix
+```
 
-If I send you a URL, you MUST immediately fetch its contents and read it carefully, before you do anything else.
+**Database management:**
+```bash
+pnpm run generate-schema # Generate SQL_SCHEMA.md from migrations.rs
+pnpm run delete-db       # Delete local development database
+```
 
-## Workflow
+**Release:**
+```bash
+pnpm run release         # Interactive release script
+```
 
-We use GitHub issues to track work we need to do, and PRs to review code. Whenever you create an issue or a PR, tag it with "by-claude". Use the `gh` bash command to interact with GitHub.
+Note: Pre-commit hooks automatically run linting and formatting. See `.lintstagedrc.json`.
 
-To start working on a feature, you should:
+## Development Instances
 
-1. Setup
+The `dev-instance.sh` script lets you run multiple isolated Chorus instances simultaneously:
+- Each instance has its own data directory: `~/Library/Application Support/sh.chorus.app.dev.<instance-name>/`
+- Each gets a unique port (1420-1520) based on instance name hash
+- Instance name appears in the DEV MODE indicator in the sidebar
+- Data persists between runs
 
--   Identify the relevant GitHub issue (or create one if needed)
--   Checkout main and pull the latest changes
--   Create a new branch like `claude/feature-name`. NEVER commit to main. NEVER push to origin/main.
+This is useful for working on multiple branches or testing without affecting your main development environment.
 
-2. Development
+## Architecture
 
--   Commit often as you write code, so that we can revert if needed.
--   When you have a draft of what you're working on, ask me to test it in the app to confirm that it works as you expect. Do this early and often.
+### High-Level Structure
 
-3. Review
+```
+src/
+├── ui/                      # React frontend
+│   ├── components/         # UI components
+│   ├── hooks/              # Custom React hooks
+│   └── providers/          # Context providers
+├── core/
+│   └── chorus/             # Core business logic
+│       ├── api/            # TanStack Query queries and mutations
+│       ├── ModelProviders/ # Provider implementations (Anthropic, OpenAI, etc.)
+│       ├── toolsets/       # MCP toolset implementations
+│       └── DB.ts           # Database connection
+src-tauri/
+└── src/                    # Rust backend
+    ├── command.rs          # Tauri commands exposed to frontend
+    ├── migrations.rs       # Database migrations
+    └── window.rs           # Window management
+```
 
--   When the work is done, verify that the diff looks good with `git diff main`
--   While you should attempt to write code that adheres to our coding style, don't worry about manually linting or formatting your changes. There are Husky pre-commit Git hooks that will do this for you.
--   Push the branch to GitHub
--   Open a PR.
-    -   The PR title should not include the issue number
-    -   The PR description should start with the issue number and a brief description of the changes.
-    -   Next, you should write a test plan. I (not you) will execute the test plan before merging the PR. If I can't check off any of the items, I will let you know. Make sure the test plan covers both new functionality and any EXISTING functionality that might be impacted by your changes
+### Data Flow
 
-4. Fixing issues
+1. **User Input** → ChatInput.tsx captures user message
+2. **TanStack Mutation** → API layer (e.g., MessageAPI.ts) handles request
+3. **Provider Selection** → Models.ts routes to appropriate provider (ProviderAnthropic.ts, ProviderOpenAI.ts, etc.)
+4. **Streaming Response** → Provider streams back to UI via TanStack Query
+5. **Database Persistence** → Rust migrations.rs defines schema, TypeScript DB queries persist data
 
--   To reconcile different branches, always rebase or cherry-pick. Do not merge.
+### Key Architectural Patterns
 
-Sometimes, after you've been working on one feature, I will ask you to start work on an unrelated feature. If I do, you should probably repeat this process from the beginning (checkout main, pull changes, create a new branch). When in doubt, just ask.
+**Model Provider System:**
+- All providers implement `IProvider` interface
+- Each provider handles its own API communication format
+- Providers support streaming, tool calling, and attachments
+- See `src/core/chorus/ModelProviders/`
 
-We use pnpm to manage dependencies.
+**Database Layer:**
+- SQLite database with migrations in `src-tauri/src/migrations.rs`
+- Database schema is auto-generated to `SQL_SCHEMA.md` via `pnpm run generate-schema`
+- TypeScript database operations reference this schema
+- CRITICAL: Never modify existing migrations, always add new ones
 
-Don't combine git commands -- e.g., instead of `git add -A && git commit`, run `git add -A` and `git commit` separately. This will save me time because I won't have to grant you permission to run the combined command.
+**API Layer (TanStack Query):**
+- Queries and mutations split by entity type: ChatAPI, MessageAPI, ProjectAPI, etc.
+- Located in `src/core/chorus/api/`
+- Each file handles one entity's CRUD operations and related business logic
 
-## Project Structure
+**MCP (Model Context Protocol):**
+- Toolsets defined in `src/core/chorus/Toolsets.ts`
+- Individual toolset implementations in `src/core/chorus/toolsets/`
+- ToolsetsManager.ts handles toolset lifecycle
 
--   **UI:** React components in `src/ui/components/`
--   **Core:** Business logic in `src/core/chorus/`
--   **Tauri:** Rust backend in `src-tauri/src/`
+**State Management:**
+- TanStack Query for server state
+- Zustand for UI state (DialogStore, etc.)
+- React Context for app-wide state (AppProvider, SidebarProvider)
 
-Important files and directories to be aware of:
+## Important Files and Directories
 
--   `src/core/chorus/db/` - Queries against the sqlite database, which are split up by entity type (e.g. message, chat, project)
--   `src/core/chorus/api/` - TanStack Query queries and mutations, which are also split up by entity type
--   `src/ui/components/MultiChat.tsx` - Main interface
--   `src/ui/components/ChatInput.tsx` - The input box where the user types chat messages
--   `src/ui/components/AppSidebar.tsx` - The sidebar on the left
--   `src/ui/App.tsx` - The root component
+**Entry Points:**
+- `src/ui/App.tsx` - React root component with routing
+- `src-tauri/src/main.rs` - Rust application entry point
+- `src-tauri/src/lib.rs` - Tauri plugin configuration
 
-You can see an up-to-date schema of all database tables in SQL_SCHEMA.md. Use this file as a reference to understand the current
-database schema.
+**Core Logic:**
+- `src/core/chorus/Models.ts` - Model configuration and defaults
+- `src/core/chorus/Toolsets.ts` - Tool/connection definitions
+- `src/core/chorus/ChatState.ts` - Chat state management
 
-Other features:
+**UI Components:**
+- `src/ui/components/MultiChat.tsx` - Main chat interface (handles both regular and quick chats)
+- `src/ui/components/ChatInput.tsx` - Message input box
+- `src/ui/components/AppSidebar.tsx` - Left sidebar with projects and chats
+- `src/ui/components/ManageModelsBox.tsx` - Model selection interface
+- `src/ui/components/Settings.tsx` - Settings dialog
 
--   Model picker, which lets the user select which models are available in the chat -- implemented in`ManageModelsBox.tsx`
--   Quick chats (aka Ambient Chats), a lightweight chat window -- implemented, alongside regular chats, in `MultiChat.tsx`
--   Projects, which are folders of related chats -- start with `AppSidebar.tsx`
--   Tools and "connections" (aka toolsets) -- start with `Toolsets.ts`
--   react-router-dom for navigation -- see `App.tsx`
+**Database:**
+- `src-tauri/src/migrations.rs` - Database schema migrations
+- `SQL_SCHEMA.md` - Auto-generated schema documentation (DO NOT EDIT MANUALLY)
 
-## Screenshots
+## Data Model Changes
 
-I've put some screenshots of the app in the `screenshots` directory. If you're working on the UI at all, take a look at them. Keep in mind, though, that they may not be up to date with the latest code changes.
+When modifying the data model:
 
-## Data model changes
+1. Add a new migration in `src-tauri/src/migrations.rs` (NEVER modify existing migrations)
+2. Run `pnpm run generate-schema` to update SQL_SCHEMA.md
+3. Update TypeScript types throughout the codebase
+4. Update TanStack Query queries/mutations in `src/core/chorus/api/`
+5. Stage SQL_SCHEMA.md with your migration changes
 
-Changes to the data model will typically require most of the following steps:
+## Git Workflow
 
--   Making a new migration in `src-tauri/src/migrations.rs` (if changes to the sqlite database scheme are needed)
--   Modifying fetch and read functions in `src/core/chorus/DB.ts`
--   Modifying data types (stored in a variety of places)
--   Adding or modifying TanStack Query queries in `src/core/chorus/API.ts`
+**Branch management:**
+- NEVER commit directly to main
+- NEVER push to origin/main
+- Create feature branches: `claude/feature-name`
+- Use rebase or cherry-pick to reconcile branches, not merge
 
-## Coding style
+**Committing:**
+- Run git commands separately, not chained (e.g., `git add -A` then `git commit`, not `git add -A && git commit`)
+- Commit frequently to allow easy reverts
+- Pre-commit hooks will automatically lint and format
 
--   **TypeScript:** Strict typing enabled, ES2020 target. Use `as` only in exceptional
-    circumstances, and then only with an explanatory comment. Prefer type hints.
--   **Paths:** `@ui/*`, `@core/*`, `@/*` aliases. Use these instead of relative imports.
--   **Components:** PascalCase for React components
--   **Interfaces:** Prefixed with "I" (e.g., `IProvider`)
--   **Hooks:** camelCase with "use" prefix
--   **Formatting:** 4-space indentation, Prettier formatting
--   **Promise handling:** All promises must be handled (ESLint enforced)
--   **Nulls:** Prefer undefined to null. Convert `null` values from the database into undefined, e.g. `parentChatId: row.parent_chat_id ?? undefined`
--   **Dates:** If you ever need to render a date, format it using `displayDate` in `src/ui/lib/utils.ts`. If the date was read
-    from our SQLite DB, you will need to convert it to a fully qualified UTC date using `convertDate` first.
--   Do not use foreign keys or other constraints, they're too hard to remove and tend to put us in tricky situations down the line
+**Pull Requests:**
+- Tag all issues and PRs with "by-claude"
+- PR title should NOT include issue number
+- PR description should START with issue number
+- Include comprehensive test plan for user to execute
+- Test plan must cover both new functionality and potentially impacted existing features
+- Use `gh` CLI for GitHub interactions
 
-IMPORTANT: If you want to use any of these features, you must alert me and explicitly ask for my permission first: `setTimeout`, `useImperativeHandle`, `useRef`, or type assertions with `as`.
+## Coding Style
+
+**TypeScript:**
+- Strict mode enabled, ES2020 target
+- Use `as` type assertions only in exceptional cases with explanatory comments
+- Prefer type hints over assertions
+
+**Imports:**
+- Use path aliases: `@ui/*`, `@core/*`, `@/*` instead of relative imports
+- Configured in `tsconfig.json` and `vite.config.ts`
+
+**Naming:**
+- React components: PascalCase
+- Interfaces: Prefixed with "I" (e.g., `IProvider`)
+- Hooks: camelCase with "use" prefix
+- Files: Match component name
+
+**Formatting:**
+- 4-space indentation (see `.prettierrc`)
+- Prettier handles formatting automatically via pre-commit hooks
+
+**Nulls and Undefined:**
+- Prefer `undefined` over `null`
+- Convert database nulls to undefined: `parentChatId: row.parent_chat_id ?? undefined`
+
+**Dates:**
+- Format dates with `displayDate` from `src/ui/lib/utils.ts`
+- Convert SQLite dates to UTC with `convertDate` before formatting
+
+**Constraints:**
+- Do not use foreign keys or database constraints (difficult to remove later)
+
+**Promises:**
+- ESLint enforces that all promises must be handled (@typescript-eslint/no-floating-promises)
+
+**Restricted Features - Require Explicit Permission:**
+Before using any of these, you MUST ask the user for permission:
+- `setTimeout`
+- `useImperativeHandle`
+- `useRef`
+- Type assertions with `as`
 
 ## Troubleshooting
 
-Whenever I report that code you wrote doesn't work, or report a bug, you should:
+When investigating bugs:
 
-1. Read any relevant code or documentation, looking for hypotheses about the root cause
-2. For each hypothesis, check whether it's consistent with the observations I've already reported
-3. For any remaining hypotheses, think about a test I could run that would tell me if that hypothesis is incorrect
-4. Propose a troubleshooting plan. The plan could involve: me running a test, you writing code, you adding logging statements, me reporting the output of the log statements back to you, or any other steps you think would be helpful.
+1. Form hypotheses about root causes by reading relevant code
+2. Evaluate each hypothesis against reported observations
+3. Design tests to eliminate hypotheses
+4. Propose a troubleshooting plan (tests, logging, code changes)
+5. Iterate through the plan, re-evaluating hypotheses with new evidence
 
-Then we'll go through the plan together. At each step, keep in mind your list of hypotheses, and remember to re-evaluate each hypothesis against the evidence we've collected.
+**Model Provider Debugging:**
+To debug requests to model providers (prompt formatting, attachments, tool calls):
+```typescript
+// Add to ProviderAnthropic.ts or relevant provider
+console.log(`createParams: ${JSON.stringify(createParams, null, 2)}`);
+```
 
-When we run into issues with the requests we're sending to model providers (e.g., the way we format system prompts, attachments, tool calls, or other parts of the conversation history) one helpful troubleshooting step is to add the line `console.log(`createParams: ${JSON.stringify(createParams, null, 2)}`);` to ProviderAnthropic.ts.
+## Testing
 
-## Updating this onboarding doc
+You (Claude) do NOT have access to the running app. You MUST rely on the user to test your code.
 
-Whenever you discover something that you wish you'd known earlier -- and seems likely to be helpful to future developers as well -- you can add it to the scratchpad section below. Feel free to edit the scratchpad section, but don't change the rest of this doc.
+After fixing a bug, pause and ask the user to verify the fix before continuing.
 
-### Scratchpad
+When you complete a draft implementation, ask the user to test it early and often.
+
+## Role and Workflow
+
+Your role is to write code. When working on features:
+
+1. **Setup:**
+   - Identify or create GitHub issue
+   - Checkout main and pull latest
+   - Create new branch `claude/feature-name`
+
+2. **Development:**
+   - Ask questions when unclear about implementation approach
+   - Commit often for easy reversion
+   - Request user testing early with draft implementations
+
+3. **Review:**
+   - Verify diff with `git diff main`
+   - Don't worry about manual linting/formatting (hooks handle it)
+   - Push branch to GitHub
+   - Open PR with issue number, description, and user-executable test plan
+
+4. **Context:**
+   - If user sends a URL, fetch and read it immediately before doing anything else
+   - Screenshots are in `screenshots/` directory (may not reflect latest changes)
+   - SQL schema is in `SQL_SCHEMA.md` (auto-generated reference)
+
+When asked to start unrelated work, repeat the workflow from the beginning (checkout main, new branch).

@@ -71,9 +71,13 @@ type ModelConfigDBRow = {
     completion_price_per_token: number | null;
 };
 
-// Track whether we've attempted to refresh OpenRouter models within
+// Track whether we've attempted to refresh models within
 // the current session, and store the promise if a download is in progress.
 let openRouterDownloadPromise: Promise<number> | null = null;
+let openAIDownloadPromise: Promise<void> | null = null;
+let anthropicDownloadPromise: Promise<void> | null = null;
+let googleDownloadPromise: Promise<void> | null = null;
+let grokDownloadPromise: Promise<void> | null = null;
 
 function readModel(row: ModelDBRow): Models.Model {
     return {
@@ -110,18 +114,59 @@ function readModelConfig(row: ModelConfigDBRow): ModelConfig {
 }
 
 export async function fetchModelConfigs() {
-    // Fetch OpenRouter models if we haven't already and the user has an OpenRouter API key.
     const apiKeys = await getApiKeys();
+
+    // Fetch models from various providers if we haven't already and the user has the API key.
+    // OpenRouter
     if (apiKeys.openrouter) {
-        // If a download is already in progress, wait for it to complete.
-        // Otherwise, start a new download and store the promise.
         if (openRouterDownloadPromise) {
             await openRouterDownloadPromise;
         } else {
             openRouterDownloadPromise = Models.downloadOpenRouterModels(db);
             await openRouterDownloadPromise;
-            // Keep the promise stored so subsequent calls know it completed
-            // (we don't clear it to prevent re-downloads within the session)
+        }
+    }
+
+    // OpenAI
+    if (apiKeys.openai) {
+        if (openAIDownloadPromise) {
+            await openAIDownloadPromise;
+        } else {
+            openAIDownloadPromise = Models.downloadOpenAIModels(db, apiKeys);
+            await openAIDownloadPromise;
+        }
+    }
+
+    // Anthropic
+    if (apiKeys.anthropic) {
+        if (anthropicDownloadPromise) {
+            await anthropicDownloadPromise;
+        } else {
+            anthropicDownloadPromise = Models.downloadAnthropicModels(
+                db,
+                apiKeys,
+            );
+            await anthropicDownloadPromise;
+        }
+    }
+
+    // Google
+    if (apiKeys.google) {
+        if (googleDownloadPromise) {
+            await googleDownloadPromise;
+        } else {
+            googleDownloadPromise = Models.downloadGoogleModels(db, apiKeys);
+            await googleDownloadPromise;
+        }
+    }
+
+    // Grok
+    if (apiKeys.grok) {
+        if (grokDownloadPromise) {
+            await grokDownloadPromise;
+        } else {
+            grokDownloadPromise = Models.downloadGrokModels(db, apiKeys);
+            await grokDownloadPromise;
         }
     }
 
@@ -355,10 +400,78 @@ export function useRefreshLMStudioModels() {
     });
 }
 
+export function useRefreshOpenAIModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshOpenAIModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadOpenAIModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshAnthropicModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshAnthropicModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadAnthropicModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshGoogleModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshGoogleModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadGoogleModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshGrokModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshGrokModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadGrokModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
 export function useRefreshModels() {
     const refreshOpenRouterModels = useRefreshOpenRouterModels();
     const refreshOllamaModels = useRefreshOllamaModels();
     const refreshLMStudioModels = useRefreshLMStudioModels();
+    const refreshOpenAIModels = useRefreshOpenAIModels();
+    const refreshAnthropicModels = useRefreshAnthropicModels();
+    const refreshGoogleModels = useRefreshGoogleModels();
+    const refreshGrokModels = useRefreshGrokModels();
     return useMutation({
         mutationKey: ["refreshAllModels"] as const,
         mutationFn: async () => {
@@ -366,6 +479,10 @@ export function useRefreshModels() {
                 refreshOpenRouterModels.mutateAsync(),
                 refreshOllamaModels.mutateAsync(),
                 refreshLMStudioModels.mutateAsync(),
+                refreshOpenAIModels.mutateAsync(),
+                refreshAnthropicModels.mutateAsync(),
+                refreshGoogleModels.mutateAsync(),
+                refreshGrokModels.mutateAsync(),
             ]);
         },
     });
