@@ -169,6 +169,12 @@ export class ProviderAnthropic implements IProvider {
                 }),
         };
 
+        // Debug: Log thinking parameters
+        console.log(`[ProviderAnthropic] Model: ${anthropicModelName}`);
+        console.log(`[ProviderAnthropic] isThinking: ${isThinking}`);
+        console.log(`[ProviderAnthropic] modelConfig.budgetTokens: ${modelConfig.budgetTokens}`);
+        console.log(`[ProviderAnthropic] createParams.thinking:`, (createParams as unknown as Record<string, unknown>).thinking);
+
         // Configure headers
         const headers: Record<string, string> = {
             ...(additionalHeaders ?? {}),

@@ -219,6 +219,7 @@ SELECT
   m.is_deprecated,
   mc.budget_tokens,
   mc.reasoning_effort,
+  mc.thinking_level,
   em.original_order,
   m.prompt_price_per_token,
   m.completion_price_per_token
@@ -259,6 +260,7 @@ SELECT
   m.is_deprecated,
   mc.budget_tokens,
   mc.reasoning_effort,
+  mc.thinking_level,
   m.prompt_price_per_token,
   m.completion_price_per_token
 FROM
@@ -297,6 +299,7 @@ SELECT
   m.is_deprecated,
   mc.budget_tokens,
   mc.reasoning_effort,
+  mc.thinking_level,
   m.prompt_price_per_token,
   m.completion_price_per_token
 FROM
@@ -548,15 +551,46 @@ export function useUpdateThinkingParams() {
             reasoningEffort?: "low" | "medium" | "high" | "xhigh" | null;
             thinkingLevel?: "LOW" | "HIGH" | null;
         }) => {
+            // Build dynamic SQL to only update fields that are provided
+            // This avoids the stale closure issue where other params get overwritten
+            const updates: string[] = [];
+            const params: (string | number | null)[] = [];
+            let paramIndex = 1;
+
+            if (budgetTokens !== undefined) {
+                updates.push(`budget_tokens = $${paramIndex}`);
+                params.push(budgetTokens);
+                paramIndex++;
+            }
+
+            if (reasoningEffort !== undefined) {
+                updates.push(`reasoning_effort = $${paramIndex}`);
+                params.push(reasoningEffort);
+                paramIndex++;
+            }
+
+            if (thinkingLevel !== undefined) {
+                updates.push(`thinking_level = $${paramIndex}`);
+                params.push(thinkingLevel);
+                paramIndex++;
+            }
+
+            if (updates.length === 0) {
+                return; // Nothing to update
+            }
+
+            params.push(modelConfigId);
+
             await db.execute(
-                "UPDATE model_configs SET budget_tokens = $1, reasoning_effort = $2, thinking_level = $3 WHERE id = $4",
-                [budgetTokens, reasoningEffort, thinkingLevel, modelConfigId],
+                `UPDATE model_configs SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
+                params,
             );
         },
         onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
+            // Invalidate ALL model config queries so UI updates everywhere
+            await queryClient.invalidateQueries({
+                queryKey: modelConfigKeys.all(),
+            });
         },
     });
 }

@@ -91,6 +91,12 @@ export class ProviderGrok implements IProvider {
             streamParams.reasoning_effort = modelConfig.reasoningEffort;
         }
 
+        // Debug: Log reasoning parameters
+        console.log(`[ProviderGrok] Model: ${modelName}`);
+        console.log(`[ProviderGrok] isGrok3Mini: ${isGrok3Mini}`);
+        console.log(`[ProviderGrok] modelConfig.reasoningEffort: ${modelConfig.reasoningEffort}`);
+        console.log(`[ProviderGrok] streamParams.reasoning_effort:`, streamParams.reasoning_effort);
+
         try {
             const stream = await client.chat.completions.create(streamParams);
 

@@ -137,13 +137,23 @@ export class ProviderGoogle implements IProvider {
 
         if (isGemini3 && modelConfig.thinkingLevel) {
             // Gemini 3 uses thinking_level parameter
-            (streamParams as Record<string, unknown>).thinking_level =
+            (streamParams as unknown as Record<string, unknown>).thinking_level =
                 modelConfig.thinkingLevel;
         } else if (isGemini25 && modelConfig.budgetTokens) {
             // Gemini 2.5 uses thinking_budget parameter
-            (streamParams as Record<string, unknown>).thinking_budget =
+            (streamParams as unknown as Record<string, unknown>).thinking_budget =
                 modelConfig.budgetTokens;
         }
+
+        // Debug: Log thinking parameters
+        console.log(`[ProviderGoogle] Model: ${googleModelName}`);
+        console.log(`[ProviderGoogle] isGemini3: ${isGemini3}, isGemini25: ${isGemini25}`);
+        console.log(`[ProviderGoogle] modelConfig.thinkingLevel: ${modelConfig.thinkingLevel}`);
+        console.log(`[ProviderGoogle] modelConfig.budgetTokens: ${modelConfig.budgetTokens}`);
+        console.log(`[ProviderGoogle] streamParams thinking params:`, {
+            thinking_level: (streamParams as unknown as Record<string, unknown>).thinking_level,
+            thinking_budget: (streamParams as unknown as Record<string, unknown>).thinking_budget
+        });
 
         // Add tools definitions
         if (tools && tools.length > 0) {

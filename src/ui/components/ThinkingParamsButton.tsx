@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Brain, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Brain } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Label } from "./ui/label";
@@ -24,14 +24,21 @@ export function ThinkingParamsButton({
 }: ThinkingParamsButtonProps) {
     const updateThinkingParams = ModelsAPI.useUpdateThinkingParams();
     const [open, setOpen] = useState(false);
-    const [budgetTokens, setBudgetTokens] = useState<string>(
+
+    // Local state to avoid stale closure issues
+    // These track the current database values
+    const [localBudgetTokens, setLocalBudgetTokens] = useState<string>(
         modelConfig.budgetTokens?.toString() ?? "",
     );
-    const [reasoningEffort, setReasoningEffort] = useState<string>(
-        modelConfig.reasoningEffort ?? "default",
-    );
-    const [thinkingLevel, setThinkingLevel] = useState<string>(
-        modelConfig.thinkingLevel ?? "default",
+
+    // Sync local state when modelConfig changes from query refetch
+    useEffect(() => {
+        setLocalBudgetTokens(modelConfig.budgetTokens?.toString() ?? "");
+    }, [modelConfig.budgetTokens]);
+
+    // Debounce ref for budget tokens input
+    const budgetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
     );
 
     const providerName = getProviderName(modelConfig.modelId);
@@ -49,55 +56,80 @@ export function ThinkingParamsButton({
         return null;
     }
 
-    const handleSave = async () => {
-        try {
-            await updateThinkingParams.mutateAsync({
-                modelConfigId: modelConfig.id,
-                budgetTokens: budgetTokens ? parseInt(budgetTokens) : null,
-                reasoningEffort:
-                    reasoningEffort === "default"
-                        ? null
-                        : (reasoningEffort as
-                              | "low"
-                              | "medium"
-                              | "high"
-                              | "xhigh"),
-                thinkingLevel:
-                    thinkingLevel === "default"
-                        ? null
-                        : (thinkingLevel as "LOW" | "HIGH"),
-            });
-            toast.success("Thinking parameters updated");
-            setOpen(false);
-        } catch (error) {
-            toast.error("Failed to update thinking parameters");
-            console.error(error);
-        }
-    };
-
-    const handleReset = async () => {
-        try {
-            await updateThinkingParams.mutateAsync({
-                modelConfigId: modelConfig.id,
-                budgetTokens: null,
-                reasoningEffort: null,
-                thinkingLevel: null,
-            });
-            setBudgetTokens("");
-            setReasoningEffort("default");
-            setThinkingLevel("default");
-            toast.success("Thinking parameters reset");
-        } catch (error) {
-            toast.error("Failed to reset thinking parameters");
-            console.error(error);
-        }
-    };
-
     // Show indicator if any thinking params are set
     const hasThinkingParams =
         modelConfig.budgetTokens ||
         modelConfig.reasoningEffort ||
         modelConfig.thinkingLevel;
+
+    // Each handler ONLY updates its own field - avoids stale closure issues
+    const handleReasoningEffortChange = async (value: string) => {
+        const newEffort =
+            value === "default"
+                ? null
+                : (value as "low" | "medium" | "high" | "xhigh");
+
+        try {
+            await updateThinkingParams.mutateAsync({
+                modelConfigId: modelConfig.id,
+                reasoningEffort: newEffort,
+            });
+        } catch (error) {
+            toast.error("Failed to update reasoning effort");
+        }
+    };
+
+    const handleThinkingLevelChange = async (value: string) => {
+        const newLevel = value === "default" ? null : (value as "LOW" | "HIGH");
+
+        try {
+            await updateThinkingParams.mutateAsync({
+                modelConfigId: modelConfig.id,
+                thinkingLevel: newLevel,
+            });
+        } catch (error) {
+            toast.error("Failed to update thinking level");
+        }
+    };
+
+    const handleBudgetTokensChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        const value = e.target.value;
+        setLocalBudgetTokens(value);
+
+        // Clear existing debounce
+        if (budgetDebounceRef.current) {
+            clearTimeout(budgetDebounceRef.current);
+        }
+
+        // Debounce the API call
+        budgetDebounceRef.current = setTimeout(async () => {
+            const numValue = value === "" ? null : parseInt(value);
+
+            if (value !== "" && isNaN(numValue as number)) {
+                return; // Invalid input, don't save
+            }
+
+            try {
+                await updateThinkingParams.mutateAsync({
+                    modelConfigId: modelConfig.id,
+                    budgetTokens: numValue,
+                });
+            } catch (error) {
+                toast.error("Failed to update budget tokens");
+            }
+        }, 500);
+    };
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (budgetDebounceRef.current) {
+                clearTimeout(budgetDebounceRef.current);
+            }
+        };
+    }, []);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -149,17 +181,17 @@ export function ThinkingParamsButton({
                                 )}
                             </Label>
                             <Select
-                                value={reasoningEffort}
-                                onValueChange={(value) =>
-                                    setReasoningEffort(value)
+                                value={
+                                    modelConfig.reasoningEffort || "default"
                                 }
+                                onValueChange={handleReasoningEffortChange}
                             >
                                 <SelectTrigger id="reasoning-effort">
-                                    <SelectValue placeholder="Default (auto)" />
+                                    <SelectValue placeholder="Default (medium)" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="default">
-                                        Default (auto)
+                                        Default (medium)
                                     </SelectItem>
                                     <SelectItem value="low">
                                         Low - Fast & economical
@@ -203,10 +235,8 @@ export function ThinkingParamsButton({
                                         ? "1024-20000"
                                         : "0-24576 or -1 for dynamic"
                                 }
-                                value={budgetTokens}
-                                onChange={(e) =>
-                                    setBudgetTokens(e.target.value)
-                                }
+                                value={localBudgetTokens}
+                                onChange={handleBudgetTokensChange}
                                 min={providerName === "anthropic" ? 1024 : -1}
                                 max={
                                     providerName === "anthropic" ? 20000 : 24576
@@ -229,10 +259,8 @@ export function ThinkingParamsButton({
                                 </span>
                             </Label>
                             <Select
-                                value={thinkingLevel}
-                                onValueChange={(value) =>
-                                    setThinkingLevel(value)
-                                }
+                                value={modelConfig.thinkingLevel || "default"}
+                                onValueChange={handleThinkingLevelChange}
                             >
                                 <SelectTrigger id="thinking-level">
                                     <SelectValue placeholder="Default (HIGH)" />
@@ -251,27 +279,6 @@ export function ThinkingParamsButton({
                             </Select>
                         </div>
                     )}
-
-                    <div className="flex gap-2 pt-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleReset}
-                            className="flex-1"
-                        >
-                            Reset
-                        </Button>
-                        <Button
-                            size="sm"
-                            onClick={handleSave}
-                            disabled={updateThinkingParams.isPending}
-                            className="flex-1"
-                        >
-                            {updateThinkingParams.isPending
-                                ? "Saving..."
-                                : "Save"}
-                        </Button>
-                    </div>
                 </div>
             </PopoverContent>
         </Popover>

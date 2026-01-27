@@ -2562,5 +2562,41 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 ALTER TABLE model_configs ADD COLUMN thinking_level TEXT;
             "#,
         },
+        Migration {
+            version: 140,
+            description: "update reasoning_effort CHECK constraint to allow 'xhigh' for OpenAI models",
+            kind: MigrationKind::Up,
+            sql: r#"
+                -- SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+                -- First, create a backup of the data
+                CREATE TABLE model_configs_backup AS SELECT * FROM model_configs;
+
+                -- Drop the old table
+                DROP TABLE model_configs;
+
+                -- Recreate the table with the updated constraint
+                CREATE TABLE model_configs (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    model_id TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    author TEXT NOT NULL CHECK (author IN ('user', 'system')),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    system_prompt TEXT NOT NULL,
+                    is_default BOOLEAN DEFAULT 0,
+                    budget_tokens INTEGER,
+                    reasoning_effort TEXT CHECK (reasoning_effort IN ('low', 'medium', 'high', 'xhigh') OR reasoning_effort IS NULL),
+                    new_until DATETIME,
+                    thinking_level TEXT
+                );
+
+                -- Restore the data
+                INSERT INTO model_configs (id, model_id, display_name, author, created_at, system_prompt, is_default, budget_tokens, reasoning_effort, new_until, thinking_level)
+                SELECT id, model_id, display_name, author, created_at, system_prompt, is_default, budget_tokens, reasoning_effort, new_until, thinking_level
+                FROM model_configs_backup;
+
+                -- Drop the backup table
+                DROP TABLE model_configs_backup;
+            "#,
+        },
     ];
 }

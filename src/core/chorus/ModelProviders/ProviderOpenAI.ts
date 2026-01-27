@@ -59,7 +59,9 @@ export class ProviderOpenAI implements IProvider {
             modelId === "o3" ||
             modelId === "o3-pro" ||
             modelId === "o4-mini" ||
-            modelId === "o3-deep-research";
+            modelId === "o3-deep-research" ||
+            modelId.startsWith("gpt-5") || // All GPT-5 models support reasoning
+            modelId.startsWith("o"); // All o-series models support reasoning
 
         // Add system message if needed
         if (isReasoningModel || modelConfig.systemPrompt) {
@@ -130,6 +132,12 @@ export class ProviderOpenAI implements IProvider {
                 },
             }),
         };
+
+        // Debug: Log reasoning parameters
+        console.log(`[ProviderOpenAI] Model: ${modelId}`);
+        console.log(`[ProviderOpenAI] Is reasoning model: ${isReasoningModel}`);
+        console.log(`[ProviderOpenAI] modelConfig.reasoningEffort: ${modelConfig.reasoningEffort}`);
+        console.log(`[ProviderOpenAI] createParams.reasoning:`, createParams.reasoning);
 
         // Add special tools for o3-deep-research
         if (modelId === "o3-deep-research") {
