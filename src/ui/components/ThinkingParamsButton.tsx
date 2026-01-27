@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { Brain, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "./ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Label } from "./ui/label";
 import {
     Select,
@@ -127,7 +123,10 @@ export function ThinkingParamsButton({
 
                     {showReasoningEffort && (
                         <div className="space-y-2">
-                            <Label htmlFor="reasoning-effort" className="text-xs">
+                            <Label
+                                htmlFor="reasoning-effort"
+                                className="text-xs"
+                            >
                                 Reasoning Effort
                                 {providerName === "openai" && (
                                     <span className="text-muted-foreground ml-1">
@@ -203,9 +202,13 @@ export function ThinkingParamsButton({
                                         : "0-24576 or -1 for dynamic"
                                 }
                                 value={budgetTokens}
-                                onChange={(e) => setBudgetTokens(e.target.value)}
+                                onChange={(e) =>
+                                    setBudgetTokens(e.target.value)
+                                }
                                 min={providerName === "anthropic" ? 1024 : -1}
-                                max={providerName === "anthropic" ? 20000 : 24576}
+                                max={
+                                    providerName === "anthropic" ? 20000 : 24576
+                                }
                             />
                             <p className="text-xs text-muted-foreground">
                                 {providerName === "anthropic"
@@ -226,14 +229,18 @@ export function ThinkingParamsButton({
                             <Select
                                 value={thinkingLevel}
                                 onValueChange={(value) =>
-                                    setThinkingLevel(value as "LOW" | "HIGH" | "")
+                                    setThinkingLevel(
+                                        value as "LOW" | "HIGH" | "",
+                                    )
                                 }
                             >
                                 <SelectTrigger id="thinking-level">
                                     <SelectValue placeholder="Default (HIGH)" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">Default (HIGH)</SelectItem>
+                                    <SelectItem value="">
+                                        Default (HIGH)
+                                    </SelectItem>
                                     <SelectItem value="LOW">
                                         LOW - Simple tasks, faster
                                     </SelectItem>
@@ -260,7 +267,9 @@ export function ThinkingParamsButton({
                             disabled={updateThinkingParams.isPending}
                             className="flex-1"
                         >
-                            {updateThinkingParams.isPending ? "Saving..." : "Save"}
+                            {updateThinkingParams.isPending
+                                ? "Saving..."
+                                : "Save"}
                         </Button>
                     </div>
                 </div>

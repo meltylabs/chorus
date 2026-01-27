@@ -528,7 +528,9 @@ export async function downloadOpenAIModels(
         );
 
         if (!apiKeys.openai) {
-            console.log("No OpenAI API key configured, skipping model download");
+            console.log(
+                "No OpenAI API key configured, skipping model download",
+            );
             return;
         }
 
@@ -641,7 +643,12 @@ export async function downloadAnthropicModels(
                 {
                     id: `anthropic::${model.id}`,
                     displayName: model.display_name,
-                    supportedAttachmentTypes: ["text", "image", "pdf", "webpage"],
+                    supportedAttachmentTypes: [
+                        "text",
+                        "image",
+                        "pdf",
+                        "webpage",
+                    ],
                     isEnabled: true,
                     isInternal: false,
                 },
@@ -670,7 +677,9 @@ export async function downloadGoogleModels(
         );
 
         if (!apiKeys.google) {
-            console.log("No Google API key configured, skipping model download");
+            console.log(
+                "No Google API key configured, skipping model download",
+            );
             return;
         }
 
