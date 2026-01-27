@@ -18,6 +18,7 @@ import { createUserMessage } from "@core/chorus/ChatState";
 import { MouseTrackingEyeRef } from "./MouseTrackingEye";
 import { useWaitForAppMetadata } from "@ui/hooks/useWaitForAppMetadata";
 import { ManageModelsButtonCompare } from "./ModelPills";
+import { ThinkingParamsButton } from "./ThinkingParamsButton";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useMutation } from "@tanstack/react-query";
@@ -606,23 +607,40 @@ export function ChatInput({
                     <div className="flex items-center gap-2 h-7 overflow-x-auto -mx-1 no-scrollbar overflow-y-hidden relative w-[30rem]">
                         <AttachmentAddPill onSelect={fileSelect.mutate} />
                         {!isReply && (
-                            <ManageModelsButtonCompare
-                                selectedModelConfigs={
-                                    selectedModelConfigsCompare.data ?? []
-                                }
-                                dialogId={MANAGE_MODELS_COMPARE_DIALOG_ID}
-                            />
+                            <>
+                                <ManageModelsButtonCompare
+                                    selectedModelConfigs={
+                                        selectedModelConfigsCompare.data ?? []
+                                    }
+                                    dialogId={MANAGE_MODELS_COMPARE_DIALOG_ID}
+                                />
+                                {selectedModelConfigsCompare.data?.length ===
+                                    1 && (
+                                    <ThinkingParamsButton
+                                        modelConfig={
+                                            selectedModelConfigsCompare.data[0]
+                                        }
+                                    />
+                                )}
+                            </>
                         )}
                         {isReply && (
-                            <ManageModelsButtonCompare
-                                selectedModelConfigs={
-                                    replyToModelConfig
-                                        ? [replyToModelConfig]
-                                        : undefined
-                                }
-                                dialogId={MANAGE_MODELS_REPLY_DIALOG_ID}
-                                showShortcut={false}
-                            />
+                            <>
+                                <ManageModelsButtonCompare
+                                    selectedModelConfigs={
+                                        replyToModelConfig
+                                            ? [replyToModelConfig]
+                                            : undefined
+                                    }
+                                    dialogId={MANAGE_MODELS_REPLY_DIALOG_ID}
+                                    showShortcut={false}
+                                />
+                                {replyToModelConfig && (
+                                    <ThinkingParamsButton
+                                        modelConfig={replyToModelConfig}
+                                    />
+                                )}
+                            </>
                         )}
                         {!isReply && <ToolsBox />}
                     </div>

@@ -95,7 +95,6 @@ import { useShortcut } from "@ui/hooks/useShortcut";
 import { projectDisplayName, sendTauriNotification } from "@ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ManageModelsBox } from "./ManageModelsBox";
-import { ThinkingParamsButton } from "./ThinkingParamsButton";
 import RepliesDrawer from "./RepliesDrawer";
 import useElementScrollDetection from "@ui/hooks/useScrollDetection";
 import { checkScreenRecordingPermission } from "tauri-plugin-macos-permissions-api";
@@ -1261,9 +1260,6 @@ export function ToolsMessageView({
                                             <div className="text-sm">
                                                 {modelConfig?.displayName}
                                             </div>
-                                            <ThinkingParamsButton
-                                                modelConfig={modelConfig}
-                                            />
                                         </div>
                                     )}
                                 </div>

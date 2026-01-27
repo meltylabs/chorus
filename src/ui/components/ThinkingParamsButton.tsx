@@ -95,11 +95,11 @@ export function ThinkingParamsButton({
                 <Button
                     variant="ghost"
                     size="sm"
-                    className={`h-6 px-2 gap-1 ${hasThinkingParams ? "text-accent-600" : "text-muted-foreground"}`}
+                    className={`h-7 px-2 gap-1 ${hasThinkingParams ? "text-accent-600" : "text-muted-foreground"} hover:bg-muted/50`}
                 >
                     <Brain className="w-3.5 h-3.5" />
                     {hasThinkingParams && (
-                        <span className="text-xs">
+                        <span className="text-xs font-medium">
                             {modelConfig.reasoningEffort ||
                                 modelConfig.thinkingLevel ||
                                 (modelConfig.budgetTokens
@@ -107,7 +107,6 @@ export function ThinkingParamsButton({
                                     : "")}
                         </span>
                     )}
-                    <ChevronDown className="w-3 h-3" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="start">
