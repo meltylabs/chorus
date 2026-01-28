@@ -85,7 +85,8 @@ export function QuickChatModelSelector({
                     config.isEnabled &&
                     !config.id.includes("chorus") &&
                     !config.displayName.includes("Deprecated") &&
-                    ALLOWED_MODEL_IDS_FOR_QUICK_CHAT.includes(config.id) &&
+                    (config.modelId.startsWith("openrouter::") ||
+                        ALLOWED_MODEL_IDS_FOR_QUICK_CHAT.includes(config.id)) &&
                     isModelAllowed(config),
             ) ?? [],
         [modelConfigsQuery, isModelAllowed],
