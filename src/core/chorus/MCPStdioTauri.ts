@@ -84,6 +84,7 @@ export class StdioClientTransportChorus implements Transport {
     onclose?: () => void;
     onerror?: (error: Error) => void;
     onmessage?: (message: JSONRPCMessage) => void;
+    onstderr?: (data: string) => void;
 
     constructor(server: StdioServerParameters) {
         this._serverParams = server;
@@ -99,14 +100,18 @@ export class StdioClientTransportChorus implements Transport {
             );
         }
 
+        const env = {
+            ...getDefaultEnvironment(),
+            ...(this._serverParams.env ?? {}),
+        };
+
         this._command =
             this._serverParams.type === "sidecar"
                 ? Command.sidecar(
                       this._serverParams.sidecarBinary,
                       this._serverParams.args ?? [],
                       {
-                          env:
-                              this._serverParams.env ?? getDefaultEnvironment(),
+                          env,
                       },
                   )
                 : Command.sidecar(
@@ -116,8 +121,7 @@ export class StdioClientTransportChorus implements Transport {
                           ...(this._serverParams.args ?? []),
                       ],
                       {
-                          env:
-                              this._serverParams.env ?? getDefaultEnvironment(),
+                          env,
                       },
                   );
 
@@ -153,14 +157,12 @@ export class StdioClientTransportChorus implements Transport {
         // });
 
         this._command.stdout?.on("data", (chunk) => {
-            console.log("Received chunk:", chunk);
             this._readBuffer.append(Buffer.from(chunk));
             this.processReadBuffer();
         });
 
         this._command.stderr?.on("data", (chunk) => {
-            console.log("Received stderr chunk:", chunk, this.onerror);
-            this.onerror?.(new Error(chunk));
+            this.onstderr?.(chunk);
         });
 
         // this._command.stdout?.on("error", (error) => {
@@ -189,6 +191,16 @@ export class StdioClientTransportChorus implements Transport {
 
     async close(): Promise<void> {
         this._abortController.abort();
+
+        try {
+            await this._process?.kill();
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            this.onerror?.(
+                new Error(`Failed to kill MCP process: ${errorMessage}`),
+            );
+        }
+
         this._process = undefined;
         this._command = undefined;
         this._readBuffer.clear();

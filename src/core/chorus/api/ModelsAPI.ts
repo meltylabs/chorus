@@ -79,6 +79,45 @@ let openAIDownloadPromise: Promise<void> | null = null;
 let anthropicDownloadPromise: Promise<void> | null = null;
 let googleDownloadPromise: Promise<void> | null = null;
 let grokDownloadPromise: Promise<void> | null = null;
+let groqDownloadPromise: Promise<void> | null = null;
+let mistralDownloadPromise: Promise<void> | null = null;
+let cerebrasDownloadPromise: Promise<void> | null = null;
+let fireworksDownloadPromise: Promise<void> | null = null;
+
+/**
+ * Reset download promises for a specific provider so models can be re-fetched.
+ */
+export function resetProviderDownloadPromise(provider: string) {
+    switch (provider) {
+        case "openrouter":
+            openRouterDownloadPromise = null;
+            break;
+        case "openai":
+            openAIDownloadPromise = null;
+            break;
+        case "anthropic":
+            anthropicDownloadPromise = null;
+            break;
+        case "google":
+            googleDownloadPromise = null;
+            break;
+        case "grok":
+            grokDownloadPromise = null;
+            break;
+        case "groq":
+            groqDownloadPromise = null;
+            break;
+        case "mistral":
+            mistralDownloadPromise = null;
+            break;
+        case "cerebras":
+            cerebrasDownloadPromise = null;
+            break;
+        case "fireworks":
+            fireworksDownloadPromise = null;
+            break;
+    }
+}
 
 function readModel(row: ModelDBRow): Models.Model {
     return {
@@ -173,6 +212,52 @@ export async function fetchModelConfigs() {
         } else {
             grokDownloadPromise = Models.downloadGrokModels(db, apiKeys);
             await grokDownloadPromise;
+        }
+    }
+
+    // Groq
+    if (apiKeys.groq) {
+        if (groqDownloadPromise) {
+            await groqDownloadPromise;
+        } else {
+            groqDownloadPromise = Models.downloadGroqModels(db, apiKeys);
+            await groqDownloadPromise;
+        }
+    }
+
+    // Mistral
+    if (apiKeys.mistral) {
+        if (mistralDownloadPromise) {
+            await mistralDownloadPromise;
+        } else {
+            mistralDownloadPromise = Models.downloadMistralModels(db, apiKeys);
+            await mistralDownloadPromise;
+        }
+    }
+
+    // Cerebras
+    if (apiKeys.cerebras) {
+        if (cerebrasDownloadPromise) {
+            await cerebrasDownloadPromise;
+        } else {
+            cerebrasDownloadPromise = Models.downloadCerebrasModels(
+                db,
+                apiKeys,
+            );
+            await cerebrasDownloadPromise;
+        }
+    }
+
+    // Fireworks
+    if (apiKeys.fireworks) {
+        if (fireworksDownloadPromise) {
+            await fireworksDownloadPromise;
+        } else {
+            fireworksDownloadPromise = Models.downloadFireworksModels(
+                db,
+                apiKeys,
+            );
+            await fireworksDownloadPromise;
         }
     }
 
@@ -466,6 +551,120 @@ export function useRefreshGrokModels() {
             await Models.downloadGrokModels(db, apiKeys);
         },
         onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshGroqModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshGroqModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadGroqModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshMistralModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshMistralModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadMistralModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshCerebrasModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshCerebrasModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadCerebrasModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshFireworksModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshFireworksModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadFireworksModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useToggleModelEnabled() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["toggleModelEnabled"] as const,
+        mutationFn: async ({
+            modelId,
+            enabled,
+        }: {
+            modelId: string;
+            enabled: boolean;
+        }) => {
+            await db.execute("UPDATE models SET is_enabled = ? WHERE id = ?", [
+                enabled ? 1 : 0,
+                modelId,
+            ]);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["models"] });
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useSetProviderModelsEnabled() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["setProviderModelsEnabled"] as const,
+        mutationFn: async ({
+            providerId,
+            enabled,
+        }: {
+            providerId: string;
+            enabled: boolean;
+        }) => {
+            await db.execute(
+                "UPDATE models SET is_enabled = ? WHERE id LIKE ?",
+                [enabled ? 1 : 0, `${providerId}::%`],
+            );
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["models"] });
             await queryClient.invalidateQueries(
                 modelConfigQueries.listConfigs(),
             );

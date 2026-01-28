@@ -97,4 +97,3 @@ export function clampAnthropicThinkingBudgetTokens(params: {
         Math.max(ANTHROPIC_THINKING_MIN_BUDGET_TOKENS, normalizedBudgetTokens),
     );
 }
-

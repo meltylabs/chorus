@@ -21,7 +21,6 @@ import {
 import { Separator } from "./ui/separator";
 import {
     Loader2,
-    ChevronDown,
     ExternalLink,
     Pencil,
     Trash2,
@@ -58,16 +57,12 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useDatabase } from "@ui/hooks/useDatabase";
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "@ui/components/ui/collapsible";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { AccessibilitySettings } from "./AccessibilityCheck";
 import { UNIVERSAL_SYSTEM_PROMPT_DEFAULT } from "@core/chorus/prompts/prompts";
 import { CustomToolsetConfig, getEnvFromJSON } from "@core/chorus/Toolsets";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
+import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useQueryClient } from "@tanstack/react-query";
 import { useReactQueryAutoSync } from "use-react-query-auto-sync";
 import { RiClaudeFill, RiSupabaseFill } from "react-icons/ri";
@@ -1131,7 +1126,6 @@ interface Settings {
     autoConvertLongText: boolean;
     showCost: boolean;
     quickChat: QuickChatSettings;
-    lmStudioBaseUrl?: string;
     autoScrapeUrls: boolean;
     cautiousEnter?: boolean;
     customToolsets?: CustomToolsetConfig[];
@@ -1151,9 +1145,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
         tab || (searchParams.get("tab") as SettingsTabId) || "general";
     const [quickChatEnabled, setQuickChatEnabled] = useState(true);
     const [quickChatShortcut, setQuickChatShortcut] = useState("Alt+Space");
-    const [lmStudioBaseUrl, setLmStudioBaseUrl] = useState(
-        "http://localhost:1234/v1",
-    );
     const queryClient = useQueryClient();
 
     // Use React Query hooks for custom base URL
@@ -1218,8 +1209,12 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             apiKeys: newApiKeys,
         });
 
+        // Reset the download promise so models can be re-fetched
+        ModelsAPI.resetProviderDownloadPromise(provider);
         // Invalidate the API keys query so components using useApiKeys will refresh
         void queryClient.invalidateQueries({ queryKey: ["apiKeys"] });
+        // Invalidate model configs to trigger re-fetch with new API key
+        void queryClient.invalidateQueries({ queryKey: ["modelConfigs"] });
     };
 
     useEffect(() => {
@@ -1234,9 +1229,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
             setAutoScrapeUrls(settings.autoScrapeUrls ?? true);
             setCautiousEnter(settings.cautiousEnter ?? false);
             setShowCost(settings.showCost ?? false);
-            setLmStudioBaseUrl(
-                settings.lmStudioBaseUrl ?? "http://localhost:1234/v1",
-            );
         };
 
         void loadSettings();
@@ -1324,18 +1316,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                 shortcut: "Alt+Space",
                 enabled: true,
             },
-        });
-    };
-
-    const onLmStudioBaseUrlChange = async (
-        e: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-        const newUrl = e.target.value || "http://localhost:1234/v1";
-        setLmStudioBaseUrl(newUrl);
-        const currentSettings = await settingsManager.get();
-        void settingsManager.set({
-            ...currentSettings,
-            lmStudioBaseUrl: newUrl,
         });
     };
 
@@ -1748,30 +1728,6 @@ export default function Settings({ tab = "general" }: SettingsProps) {
                                         void handleApiKeyChange(provider, value)
                                     }
                                 />
-                                <Separator className="my-4" />
-                                <Collapsible className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <CollapsibleTrigger className="flex items-center w-full gap-2 hover:opacity-80">
-                                            <label className="font-semibold">
-                                                LM Studio Settings
-                                            </label>
-                                            <ChevronDown className="h-4 w-4" />
-                                        </CollapsibleTrigger>
-                                    </div>
-                                    <CollapsibleContent className="space-y-2">
-                                        <p className="">
-                                            The base URL for your LM Studio
-                                            server.
-                                        </p>
-                                        <Input
-                                            value={lmStudioBaseUrl}
-                                            onChange={(e) =>
-                                                void onLmStudioBaseUrlChange(e)
-                                            }
-                                            placeholder="http://localhost:1234/v1"
-                                        />
-                                    </CollapsibleContent>
-                                </Collapsible>
                                 <Separator className="my-4" />
                                 <ProvidersTab />
                             </div>

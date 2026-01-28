@@ -179,8 +179,8 @@ function ModelGroup({
         (model: ModelConfig) => {
             const provider = getProviderName(model.modelId);
 
-            // Local models (ollama, lmstudio) don't require API keys
-            if (provider === "ollama" || provider === "lmstudio") {
+            // Local models (ollama) don't require API keys
+            if (provider === "ollama") {
                 return false;
             }
 
@@ -200,9 +200,13 @@ function ModelGroup({
             }
 
             // Custom provider models require the custom provider to exist and have credentials.
-            if (provider === "custom_openai" || provider === "custom_anthropic") {
+            if (
+                provider === "custom_openai" ||
+                provider === "custom_anthropic"
+            ) {
                 const providerId = model.modelId.split("::")[1] || "";
-                const kind = provider === "custom_anthropic" ? "anthropic" : "openai";
+                const kind =
+                    provider === "custom_anthropic" ? "anthropic" : "openai";
                 const customProvider = (
                     appSettings?.customProviders ?? []
                 ).find((p) => p.id === providerId && p.kind === kind);
@@ -391,7 +395,6 @@ export function ManageModelsBox({
         Record<string, boolean>
     >({
         ollama: false,
-        lmstudio: false,
         openrouter: false,
     });
     const listRef = useRef<HTMLDivElement>(null);
@@ -476,19 +479,16 @@ export function ManageModelsBox({
         checkScroll();
     }, [checkScroll]);
 
-    const refreshLMStudio = ModelsAPI.useRefreshLMStudioModels();
     const refreshOllama = ModelsAPI.useRefreshOllamaModels();
     const refreshOpenRouter = ModelsAPI.useRefreshOpenRouterModels();
 
     const handleRefreshProviders = async (
-        provider: "ollama" | "lmstudio" | "openrouter",
+        provider: "ollama" | "openrouter",
     ) => {
         setSpinningProviders((prev) => ({ ...prev, [provider]: true }));
         try {
             if (provider === "ollama") {
                 await refreshOllama.mutateAsync();
-            } else if (provider === "lmstudio") {
-                await refreshLMStudio.mutateAsync();
             } else if (provider === "openrouter") {
                 await refreshOpenRouter.mutateAsync();
             }
@@ -525,7 +525,7 @@ export function ManageModelsBox({
 
         const localModels = systemModels.filter((m) => {
             const provider = getProviderName(m.modelId);
-            return provider === "ollama" || provider === "lmstudio";
+            return provider === "ollama";
         });
 
         const openrouterModels = systemModels.filter(
@@ -538,7 +538,9 @@ export function ManageModelsBox({
 
         const customProviderModels = systemModels.filter((m) => {
             const provider = getProviderName(m.modelId);
-            return provider === "custom_openai" || provider === "custom_anthropic";
+            return (
+                provider === "custom_openai" || provider === "custom_anthropic"
+            );
         });
 
         const customProviderConfigById = new Map(
@@ -561,11 +563,13 @@ export function ManageModelsBox({
             .map(([providerId, models]) => {
                 const config = customProviderConfigById.get(providerId);
                 const providerName =
-                    config?.name ?? `Custom Provider (${providerId.slice(0, 8)})`;
+                    config?.name ??
+                    `Custom Provider (${providerId.slice(0, 8)})`;
                 const providerKind =
                     config?.kind ??
                     (models.some(
-                        (m) => getProviderName(m.modelId) === "custom_anthropic",
+                        (m) =>
+                            getProviderName(m.modelId) === "custom_anthropic",
                     )
                         ? "anthropic"
                         : "openai");
@@ -586,6 +590,10 @@ export function ManageModelsBox({
             "google",
             "perplexity",
             "grok",
+            "groq",
+            "mistral",
+            "cerebras",
+            "fireworks",
         ] as const;
 
         const directByProvider = Object.fromEntries(
@@ -887,6 +895,54 @@ export function ManageModelsBox({
                             showCost={showCost}
                         />
                     )}
+                    {modelGroups.directByProvider.groq.length > 0 && (
+                        <ModelGroup
+                            heading="Groq"
+                            models={modelGroups.directByProvider.groq}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="groq"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.mistral.length > 0 && (
+                        <ModelGroup
+                            heading="Mistral"
+                            models={modelGroups.directByProvider.mistral}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="mistral"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.cerebras.length > 0 && (
+                        <ModelGroup
+                            heading="Cerebras"
+                            models={modelGroups.directByProvider.cerebras}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="cerebras"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.fireworks.length > 0 && (
+                        <ModelGroup
+                            heading="Fireworks"
+                            models={modelGroups.directByProvider.fireworks}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="fireworks"
+                            showCost={showCost}
+                        />
+                    )}
 
                     {modelGroups.vertex.length > 0 && (
                         <ModelGroup
@@ -972,15 +1028,13 @@ export function ManageModelsBox({
                                 onClick={(e) => {
                                     e.preventDefault();
                                     void handleRefreshProviders("ollama");
-                                    void handleRefreshProviders("lmstudio");
                                 }}
                                 className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
                                 title="Refresh local models"
                             >
                                 <RefreshCcwIcon
                                     className={`w-3 h-3 ${
-                                        spinningProviders["ollama"] ||
-                                        spinningProviders["lmstudio"]
+                                        spinningProviders["ollama"]
                                             ? "animate-spin"
                                             : ""
                                     }`}
@@ -993,8 +1047,14 @@ export function ManageModelsBox({
                                 <div className="flex flex-col gap-2 px-2">
                                     <div className="text-sm text-muted-foreground">
                                         No local models found. To run local
-                                        models, you must have Ollama or LM
-                                        Studio installed.
+                                        models, run Ollama locally and refresh,
+                                        or add a local OpenAI-compatible
+                                        endpoint as a Custom Provider (e.g. LM
+                                        Studio at{" "}
+                                        <span className="font-mono">
+                                            http://localhost:1234/v1
+                                        </span>
+                                        ).
                                     </div>
                                     <Button
                                         variant="outline"
@@ -1006,17 +1066,13 @@ export function ManageModelsBox({
                                             void handleRefreshProviders(
                                                 "ollama",
                                             );
-                                            void handleRefreshProviders(
-                                                "lmstudio",
-                                            );
                                         }}
                                         title="Refresh local models"
                                     >
                                         Refresh local models
                                         <RefreshCcwIcon
                                             className={`w-3 h-3 ml-2 ${
-                                                spinningProviders["ollama"] ||
-                                                spinningProviders["lmstudio"]
+                                                spinningProviders["ollama"]
                                                     ? "animate-spin"
                                                     : ""
                                             }`}

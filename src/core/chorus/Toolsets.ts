@@ -38,6 +38,8 @@ import { SiElevenlabs, SiStripe, SiSupabase } from "react-icons/si";
 
 export const TOOL_CALL_INTERRUPTED_MESSAGE = "Tool call interrupted";
 
+export const TOOLSET_ENABLED_TOOLS_CONFIG_KEY = "enabled_tools";
+
 // THIS DATA STRUCTURE IS SERIALIZED INTO THE DATABASE. DO NOT EDIT EXISTING FIELDS AND DO NOT ADD NEW REQUIRED FIELDS.
 export type UserToolCall = {
     /**
@@ -63,6 +65,11 @@ export type UserToolCall = {
     toolMetadata?: {
         description?: string;
         inputSchema?: Record<string, unknown>;
+        /**
+         * If present, tool arguments could not be parsed from the model output.
+         * This is used to provide a clear error back to the model without executing anything.
+         */
+        parseError?: string;
     };
 };
 
@@ -103,6 +110,12 @@ export interface ServerTool {
 export interface ToolImplementation {
     execute(args: Record<string, unknown>): Promise<string>;
 }
+
+export type AvailableTool = {
+    id: string;
+    description?: string;
+    inputSchema: Record<string, unknown>;
+};
 
 export function getUserToolNamespacedName(tool: UserTool): string {
     return `${tool.toolsetName}_${tool.displayNameSuffix}`;
@@ -326,6 +339,9 @@ export abstract class MCPServer {
             };
 
             const transport = new StdioClientTransportChorus(serverParams);
+            transport.onstderr = (data) => {
+                this._logs += data.endsWith("\n") ? data : data + "\n";
+            };
             this.transport = transport;
             await this.mcp.connect(this.transport);
 
@@ -468,6 +484,7 @@ export class Toolset {
     >();
     private servers: MCPServer[] = [];
     private _status: ToolsetStatus = { status: "stopped" };
+    private _availableTools: AvailableTool[] = [];
 
     constructor(
         public readonly name: string, // used to namespace tool names. alphanumeric only, must not contain special characters.
@@ -615,23 +632,66 @@ export class Toolset {
         return this.servers.map((server) => server.logs).join("\n");
     }
 
+    get availableTools(): AvailableTool[] {
+        return this._availableTools;
+    }
+
+    private clearRegisteredServerTools(): void {
+        for (const [key, entry] of this.toolRegistry.entries()) {
+            if (entry.implementation instanceof ServerToolImplementation) {
+                this.toolRegistry.delete(key);
+            }
+        }
+    }
+
+    private getServerStartConfig(config: Record<string, string>) {
+        const serverConfig = { ...config };
+        delete serverConfig[TOOLSET_ENABLED_TOOLS_CONFIG_KEY];
+        return serverConfig;
+    }
+
+    private parseEnabledToolIds(
+        config: Record<string, string>,
+    ): Set<string> | undefined {
+        const raw = config[TOOLSET_ENABLED_TOOLS_CONFIG_KEY];
+        if (raw === undefined || raw.trim() === "") {
+            return undefined; // default: all enabled
+        }
+
+        try {
+            const parsed: unknown = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return undefined;
+            }
+
+            const ids: string[] = [];
+            for (const item of parsed) {
+                if (typeof item === "string") {
+                    ids.push(item);
+                }
+            }
+
+            return new Set(ids);
+        } catch {
+            return undefined;
+        }
+    }
+
     /**
      * Start all servers with the given configuration and auto-register tools
      * based on registration options
      */
     async ensureStart(config: Record<string, string>): Promise<boolean> {
-        if (this._status.status === "running") {
-            return true;
-        }
-
         this._status = {
             status: "starting",
         };
 
+        const serverConfig = this.getServerStartConfig(config);
+
         // Start all servers in parallel
         const allStarted = _.every(
             await Promise.all(
-                this.servers.map((server) => server.ensureStart(config)),
+                this.servers.map((server) => server.ensureStart(serverConfig)),
             ),
             Boolean,
         );
@@ -640,8 +700,18 @@ export class Toolset {
             console.error(
                 `Failed to start all servers for toolset ${this.name}`,
             );
+            this._status = {
+                status: "stopped",
+            };
             return false;
         }
+
+        // Re-register server tools every time so config changes (e.g. enabled tools)
+        // take effect without requiring a full stop/start.
+        this.clearRegisteredServerTools();
+
+        const enabledToolIds = this.parseEnabledToolIds(config);
+        const availableTools: AvailableTool[] = [];
 
         // Auto-register tools based on registration options
         for (const server of this.servers) {
@@ -654,6 +724,18 @@ export class Toolset {
 
             // Get all tools from the server
             const serverTools = await server.listTools();
+
+            for (const tool of serverTools) {
+                const id =
+                    options.renameMap?.[tool.nameOnServer] ?? tool.nameOnServer;
+                availableTools.push({
+                    id,
+                    description:
+                        options.descriptionMap?.[tool.nameOnServer] ??
+                        tool.description,
+                    inputSchema: tool.inputSchema,
+                });
+            }
 
             // Apply registration options
             let filteredTools: ServerTool[] = serverTools;
@@ -669,12 +751,25 @@ export class Toolset {
                 );
             }
 
+            if (enabledToolIds !== undefined) {
+                filteredTools = filteredTools.filter((serverTool) => {
+                    const id =
+                        options.renameMap?.[serverTool.nameOnServer] ??
+                        serverTool.nameOnServer;
+                    return enabledToolIds.has(id);
+                });
+            }
+
             // Import the filtered tools with any rename mappings and description overrides
             this.importServerTools(server, filteredTools, {
                 renameMap: options.renameMap,
                 descriptionMap: options.descriptionMap,
             });
         }
+
+        this._availableTools = _.uniqBy(availableTools, (t) => t.id).sort(
+            (a, b) => a.id.localeCompare(b.id),
+        );
 
         this._status = {
             status: "running",

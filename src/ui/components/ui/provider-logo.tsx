@@ -66,6 +66,28 @@ export function ProviderLogo({
                         className="w-4 h-4 dark:invert"
                     />
                 );
+            case "groq":
+                return <img src="/groq.svg" alt="Groq" className="w-4 h-4" />;
+            case "mistral":
+                return (
+                    <img src="/mistral.svg" alt="Mistral" className="w-4 h-4" />
+                );
+            case "cerebras":
+                return (
+                    <img
+                        src="/cerebras.svg"
+                        alt="Cerebras"
+                        className="w-4 h-4"
+                    />
+                );
+            case "fireworks":
+                return (
+                    <img
+                        src="/fireworks.svg"
+                        alt="Fireworks"
+                        className="w-4 h-4"
+                    />
+                );
             case "openrouter":
                 if (modelId && modelId in OPENROUTER_CUSTOM_PROVIDER_LOGOS) {
                     return getLogoComponent(

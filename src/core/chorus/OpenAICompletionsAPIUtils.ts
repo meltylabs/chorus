@@ -11,6 +11,7 @@ import {
     UserTool,
     UserToolCall,
 } from "@core/chorus/Toolsets";
+import { parseToolCallArguments } from "@core/chorus/ToolCallArgs";
 import _ from "lodash";
 import { convertPdfToPng } from "@core/chorus/AttachmentsHelpers";
 import { v4 as uuidv4 } from "uuid";
@@ -235,12 +236,15 @@ function convertToolCalls(
                 );
                 return undefined;
             }
-            let args: unknown;
-            try {
-                args = JSON.parse(toolCall.function?.arguments ?? "{}");
-            } catch (e) {
-                console.error("Error parsing tool call arguments", e, toolCall);
-                return undefined;
+            const { args, parseError } = parseToolCallArguments(
+                toolCall.function?.arguments,
+            );
+            if (parseError) {
+                console.warn(
+                    "Failed to parse tool call arguments",
+                    parseError,
+                    toolCall.function?.name,
+                );
             }
 
             const toolDefinition = toolDefinitions.find(
@@ -257,6 +261,7 @@ function convertToolCalls(
                 toolMetadata: {
                     description: toolDefinition?.description,
                     inputSchema: toolDefinition?.inputSchema,
+                    ...(parseError ? { parseError } : {}),
                 },
             };
         })

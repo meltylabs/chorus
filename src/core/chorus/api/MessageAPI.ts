@@ -26,9 +26,15 @@ import { SimpleCompletionMode } from "../ModelProviders/simple/ISimpleCompletion
 import * as Prompts from "../prompts/prompts";
 import { useNavigate } from "react-router-dom";
 import { ToolsetsManager } from "../ToolsetsManager";
-import { UserTool, UserToolCall, UserToolResult } from "../Toolsets";
+import {
+    getUserToolNamespacedName,
+    UserTool,
+    UserToolCall,
+    UserToolResult,
+} from "../Toolsets";
 import { produce } from "immer";
 import _ from "lodash";
+import { parseToolCallArguments } from "../ToolCallArgs";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import { db } from "../DB";
 import { draftKeys } from "./DraftAPI";
@@ -993,6 +999,171 @@ type PartStreamResult =
           errorMessage: string;
       };
 
+function normalizeToolIdentifier(value: string): string {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+}
+
+function resolveToolNameToTool(
+    toolName: string,
+    tools: UserTool[],
+): UserTool | undefined {
+    const normalized = normalizeToolIdentifier(toolName);
+    if (!normalized) return undefined;
+
+    const byExactNamespaced = tools.filter(
+        (t) =>
+            normalizeToolIdentifier(getUserToolNamespacedName(t)) ===
+            normalized,
+    );
+    if (byExactNamespaced.length === 1) return byExactNamespaced[0];
+
+    const byExactSuffix = tools.filter(
+        (t) => normalizeToolIdentifier(t.displayNameSuffix) === normalized,
+    );
+    if (byExactSuffix.length === 1) return byExactSuffix[0];
+
+    const byExactToolset = tools.filter(
+        (t) => normalizeToolIdentifier(t.toolsetName) === normalized,
+    );
+    if (byExactToolset.length === 1) return byExactToolset[0];
+    if (byExactToolset.length > 1) {
+        const searchish = byExactToolset.filter((t) =>
+            normalizeToolIdentifier(t.displayNameSuffix).includes("search"),
+        );
+        if (searchish.length === 1) return searchish[0];
+    }
+
+    const byPrefix = tools.filter((t) => {
+        const ns = normalizeToolIdentifier(getUserToolNamespacedName(t));
+        const suffix = normalizeToolIdentifier(t.displayNameSuffix);
+        return (
+            suffix.startsWith(normalized) ||
+            ns.startsWith(normalized) ||
+            normalized.startsWith(suffix) ||
+            normalized.startsWith(ns)
+        );
+    });
+    if (byPrefix.length === 1) return byPrefix[0];
+
+    const byContains = tools.filter((t) => {
+        const ns = normalizeToolIdentifier(getUserToolNamespacedName(t));
+        const suffix = normalizeToolIdentifier(t.displayNameSuffix);
+        return suffix.includes(normalized) || ns.includes(normalized);
+    });
+    if (byContains.length === 1) return byContains[0];
+
+    return undefined;
+}
+
+function parseTextToolCalls(text: string, tools: UserTool[]): UserToolCall[] {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+
+    const toolCalls: UserToolCall[] = [];
+
+    // 1) XML-like tool calling format: <function_calls><invoke name="...">...</invoke></function_calls>
+    if (trimmed.includes("<function_calls")) {
+        const invokeRegex = /<invoke\s+name="([^"]+)">([\s\S]*?)<\/invoke>/gi;
+        const paramRegex =
+            /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/gi;
+
+        for (const match of trimmed.matchAll(invokeRegex)) {
+            const rawName = match[1] ?? "";
+            const inner = match[2] ?? "";
+            const resolvedTool = resolveToolNameToTool(rawName, tools);
+            if (!resolvedTool) continue;
+
+            const args: Record<string, unknown> = {};
+            let foundParam = false;
+            for (const paramMatch of inner.matchAll(paramRegex)) {
+                foundParam = true;
+                const key = (paramMatch[1] ?? "").trim();
+                const rawValue = (paramMatch[2] ?? "").trim();
+                if (!key) continue;
+
+                const { args: parsedValue, parseError } =
+                    parseToolCallArguments(rawValue);
+                args[key] = parseError ? rawValue : parsedValue;
+            }
+
+            if (!foundParam) {
+                const { args: parsedArgs, parseError } =
+                    parseToolCallArguments(inner);
+                if (!parseError) {
+                    Object.assign(args, parsedArgs);
+                }
+            }
+
+            toolCalls.push({
+                id: uuidv4().slice(0, 8),
+                namespacedToolName: getUserToolNamespacedName(resolvedTool),
+                args,
+                toolMetadata: {
+                    description: resolvedTool.description,
+                    inputSchema: resolvedTool.inputSchema,
+                },
+            });
+        }
+    }
+
+    if (toolCalls.length > 0) return toolCalls;
+
+    // 2) JSON-ish envelope: { "tool": "...", "arguments": { ... } }
+    if (
+        trimmed.includes('"tool"') &&
+        (trimmed.includes('"arguments"') || trimmed.includes("'arguments'"))
+    ) {
+        const { args: parsedEnvelope, parseError } =
+            parseToolCallArguments(trimmed);
+        if (!parseError) {
+            const toolField = parsedEnvelope["tool"];
+            const argsField = parsedEnvelope["arguments"];
+
+            if (typeof toolField === "string") {
+                const resolvedTool = resolveToolNameToTool(toolField, tools);
+                if (resolvedTool) {
+                    let resolvedArgs: Record<string, unknown> = {};
+                    if (
+                        typeof argsField === "object" &&
+                        argsField !== null &&
+                        !Array.isArray(argsField)
+                    ) {
+                        const obj: Record<string, unknown> = {};
+                        for (const [key, value] of Object.entries(argsField)) {
+                            obj[key] = value;
+                        }
+                        resolvedArgs = obj;
+                    } else if (typeof argsField === "string") {
+                        const { args: parsedArgs, parseError: argError } =
+                            parseToolCallArguments(argsField);
+                        if (!argError) {
+                            resolvedArgs = parsedArgs;
+                        }
+                    }
+
+                    toolCalls.push({
+                        id: uuidv4().slice(0, 8),
+                        namespacedToolName:
+                            getUserToolNamespacedName(resolvedTool),
+                        args: resolvedArgs,
+                        toolMetadata: {
+                            description: resolvedTool.description,
+                            inputSchema: resolvedTool.inputSchema,
+                        },
+                    });
+                }
+            }
+        }
+    }
+
+    return toolCalls;
+}
+
 export function useStreamMessagePart() {
     const queryClient = useQueryClient();
     const getToolsets = useGetToolsets();
@@ -1120,10 +1291,22 @@ export function useStreamMessagePart() {
                 // one we've been accumulating
                 finalText = finalText ?? partialResponse;
 
+                let resolvedToolCalls = toolCalls;
+                if (!resolvedToolCalls || resolvedToolCalls.length === 0) {
+                    const parsedToolCalls = parseTextToolCalls(
+                        finalText,
+                        tools,
+                    );
+                    if (parsedToolCalls.length > 0) {
+                        resolvedToolCalls = parsedToolCalls;
+                    }
+                }
+
                 // optimistic update
                 updateMessagePartInCache(finalText, streamingToken);
 
-                const hasToolCalls = toolCalls && toolCalls.length > 0;
+                const hasToolCalls =
+                    resolvedToolCalls && resolvedToolCalls.length > 0;
 
                 // Calculate cost - use OpenRouter's actual cost when available
                 let costUsd: number | undefined;
@@ -1177,7 +1360,7 @@ export function useStreamMessagePart() {
                     AND messages.streaming_token = $6`,
                     [
                         finalText,
-                        hasToolCalls ? JSON.stringify(toolCalls) : null,
+                        hasToolCalls ? JSON.stringify(resolvedToolCalls) : null,
                         chatId,
                         messageId,
                         partLevel,
@@ -1266,7 +1449,10 @@ export function useStreamMessagePart() {
                 UpdateQueue.getInstance().closeUpdateStream(streamKey);
 
                 // Resolve with tool calls if we have them
-                resolveStreamPromise({ result: "success", toolCalls });
+                resolveStreamPromise({
+                    result: "success",
+                    toolCalls: resolvedToolCalls,
+                });
             };
 
             const onError = (errorMessage: string) => {

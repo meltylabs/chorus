@@ -73,6 +73,13 @@ export class ToolsetsManager {
         }
 
         try {
+            if (toolCall.toolMetadata?.parseError) {
+                return {
+                    id: toolCall.id,
+                    content: `<system_message>Invalid tool arguments for "${toolCall.namespacedToolName}": ${toolCall.toolMetadata.parseError}. Please retry the tool call with a valid JSON object for arguments.</system_message>`,
+                };
+            }
+
             // Check if YOLO mode is enabled
             const appMetadata = await fetchAppMetadata();
             const yoloMode = appMetadata?.["yolo_mode"] === "true";
@@ -244,7 +251,9 @@ export class ToolsetsManager {
                     toolset = new CustomToolset(customConfig.name);
                     this._customToolsets.push(toolset);
                 }
+                const persistedConfig = toolsetsConfig[customConfig.name] ?? {};
                 const config = {
+                    ...persistedConfig,
                     command: customConfig.command,
                     args: customConfig.args,
                     env: customConfig.env,

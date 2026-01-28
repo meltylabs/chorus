@@ -20,6 +20,10 @@ import { ProviderGrok } from "./ModelProviders/ProviderGrok";
 import { ProviderVertex } from "./ModelProviders/ProviderVertex";
 import { ProviderCustomOpenAI } from "./ModelProviders/ProviderCustomOpenAI";
 import { ProviderCustomAnthropic } from "./ModelProviders/ProviderCustomAnthropic";
+import { ProviderGroq } from "./ModelProviders/ProviderGroq";
+import { ProviderMistral } from "./ModelProviders/ProviderMistral";
+import { ProviderCerebras } from "./ModelProviders/ProviderCerebras";
+import { ProviderFireworks } from "./ModelProviders/ProviderFireworks";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
@@ -165,6 +169,10 @@ export type ApiKeys = {
     openrouter?: string;
     google?: string;
     grok?: string;
+    groq?: string;
+    mistral?: string;
+    cerebras?: string;
+    fireworks?: string;
 };
 
 export type Model = {
@@ -259,7 +267,11 @@ export type ProviderName =
     | "vertex"
     | "custom_openai"
     | "custom_anthropic"
-    | "meta";
+    | "meta"
+    | "groq"
+    | "mistral"
+    | "cerebras"
+    | "fireworks";
 
 /**
  * Returns a human readable label for the provider
@@ -338,6 +350,14 @@ function getProvider(providerName: string): IProvider {
             return new ProviderCustomOpenAI();
         case "custom_anthropic":
             return new ProviderCustomAnthropic();
+        case "groq":
+            return new ProviderGroq();
+        case "mistral":
+            return new ProviderMistral();
+        case "cerebras":
+            return new ProviderCerebras();
+        case "fireworks":
+            return new ProviderFireworks();
         default:
             throw new Error(`Unknown provider: ${providerName}`);
     }
@@ -408,7 +428,11 @@ export async function syncVertexModels(db: Database): Promise<void> {
     const settings = await SettingsManager.getInstance().get();
     const vertex = settings.vertexAI;
 
-    if (!vertex || !hasVertexCredentials(vertex) || vertex.models.length === 0) {
+    if (
+        !vertex ||
+        !hasVertexCredentials(vertex) ||
+        vertex.models.length === 0
+    ) {
         return;
     }
 
@@ -488,6 +512,10 @@ export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
     await downloadAnthropicModels(db, apiKeys);
     await downloadGoogleModels(db, apiKeys);
     await downloadGrokModels(db, apiKeys);
+    await downloadGroqModels(db, apiKeys);
+    await downloadMistralModels(db, apiKeys);
+    await downloadCerebrasModels(db, apiKeys);
+    await downloadFireworksModels(db, apiKeys);
     return 0;
 }
 
@@ -1052,6 +1080,10 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     vertex: "context window", // best guess
     custom_openai: "context window", // best guess
     custom_anthropic: "prompt is too long", // best guess
+    groq: "context window",
+    mistral: "context window",
+    cerebras: "context window",
+    fireworks: "context window",
 };
 
 /**
@@ -1078,4 +1110,193 @@ export function detectContextLimitError(
     }
 
     return false;
+}
+
+/**
+ * Downloads models from Groq to refresh the database.
+ */
+export async function downloadGroqModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'groq::%'",
+        );
+
+        if (!apiKeys.groq) {
+            return;
+        }
+
+        const response = await fetch("https://api.groq.com/openai/v1/models", {
+            headers: { Authorization: `Bearer ${apiKeys.groq}` },
+        });
+
+        if (!response.ok) return;
+
+        const { data: models } = (await response.json()) as {
+            data: { id: string; owned_by: string }[];
+        };
+
+        for (const model of models) {
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `groq::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: ["text", "image", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Groq models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'groq::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from Mistral to refresh the database.
+ */
+export async function downloadMistralModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'mistral::%'",
+        );
+
+        if (!apiKeys.mistral) {
+            return;
+        }
+
+        const response = await fetch("https://api.mistral.ai/v1/models", {
+            headers: { Authorization: `Bearer ${apiKeys.mistral}` },
+        });
+
+        if (!response.ok) return;
+
+        const { data: models } = (await response.json()) as {
+            data: { id: string; name?: string }[];
+        };
+
+        for (const model of models) {
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `mistral::${model.id}`,
+                    displayName: model.name || model.id,
+                    supportedAttachmentTypes: ["text", "image", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.name || model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Mistral models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'mistral::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from Cerebras to refresh the database.
+ */
+export async function downloadCerebrasModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'cerebras::%'",
+        );
+
+        if (!apiKeys.cerebras) {
+            return;
+        }
+
+        const response = await fetch("https://api.cerebras.ai/v1/models", {
+            headers: { Authorization: `Bearer ${apiKeys.cerebras}` },
+        });
+
+        if (!response.ok) return;
+
+        const { data: models } = (await response.json()) as {
+            data: { id: string }[];
+        };
+
+        for (const model of models) {
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `cerebras::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: ["text", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Cerebras models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'cerebras::%'",
+        );
+    }
+}
+
+/**
+ * Downloads models from Fireworks to refresh the database.
+ */
+export async function downloadFireworksModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'fireworks::%'",
+        );
+
+        if (!apiKeys.fireworks) {
+            return;
+        }
+
+        const response = await fetch(
+            "https://api.fireworks.ai/inference/v1/models",
+            { headers: { Authorization: `Bearer ${apiKeys.fireworks}` } },
+        );
+
+        if (!response.ok) return;
+
+        const { data: models } = (await response.json()) as {
+            data: { id: string }[];
+        };
+
+        for (const model of models) {
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `fireworks::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: ["text", "image", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Fireworks models:", error);
+        await db.execute(
+            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'fireworks::%'",
+        );
+    }
 }

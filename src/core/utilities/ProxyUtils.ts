@@ -15,6 +15,10 @@ const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
     perplexity: "perplexity",
     openrouter: "openrouter",
     grok: "grok",
+    groq: "groq",
+    mistral: "mistral",
+    cerebras: "cerebras",
+    fireworks: "fireworks",
 };
 
 /**
@@ -27,6 +31,10 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
     perplexity: "Perplexity",
     openrouter: "OpenRouter",
     grok: "xAI",
+    groq: "Groq",
+    mistral: "Mistral",
+    cerebras: "Cerebras",
+    fireworks: "Fireworks",
 };
 
 /**

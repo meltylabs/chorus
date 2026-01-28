@@ -14,6 +14,11 @@ export interface Settings {
         google?: string;
         perplexity?: string;
         openrouter?: string;
+        grok?: string;
+        groq?: string;
+        mistral?: string;
+        cerebras?: string;
+        fireworks?: string;
     };
     vertexAI?: VertexAISettings;
     customProviders?: CustomProviderSettings[];

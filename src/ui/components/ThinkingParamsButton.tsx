@@ -11,7 +11,11 @@ import {
     SelectValue,
 } from "./ui/select";
 import { Input } from "./ui/input";
-import { ModelConfig, getModelName, getProviderName } from "@core/chorus/Models";
+import {
+    ModelConfig,
+    getModelName,
+    getProviderName,
+} from "@core/chorus/Models";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { toast } from "sonner";
 import {
@@ -301,7 +305,7 @@ export function ThinkingParamsButton({
                                 }
                                 max={
                                     providerName === "anthropic"
-                                        ? anthropicMaxBudgetTokens ?? 20000
+                                        ? (anthropicMaxBudgetTokens ?? 20000)
                                         : 24576
                                 }
                             />

@@ -72,7 +72,8 @@ export class ProviderAnthropic implements IProvider {
                 : undefined;
 
         const isThinking = thinkingBudgetTokens !== undefined;
-        const nativeWebSearchEnabled = enabledToolsets?.includes("web") ?? false;
+        const nativeWebSearchEnabled =
+            enabledToolsets?.includes("web") ?? false;
         const shouldUseNativeWebSearch = nativeWebSearchEnabled;
 
         // Map tools to Claude's tool format
@@ -208,8 +209,16 @@ export class ProviderAnthropic implements IProvider {
             finalMessage.content.filter((item) => item.type === "tool_use"),
         );
 
+        // Only surface tool calls that correspond to user-configured tools.
+        // This prevents server-side tools (e.g., Anthropic web search) from being routed
+        // through our MCP/custom tool execution loop.
+        const allowedToolNames = new Set(
+            (tools ?? []).map((t) => getUserToolNamespacedName(t)),
+        );
+
         const toolCalls: UserToolCall[] = finalMessage.content
             .filter((item) => item.type === "tool_use")
+            .filter((tool) => allowedToolNames.has(tool.name))
             .map((tool) => {
                 const calledTool = tools?.find(
                     (t) => getUserToolNamespacedName(t) === tool.name,

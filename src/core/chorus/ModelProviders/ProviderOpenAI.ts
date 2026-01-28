@@ -14,6 +14,7 @@ import { IProvider } from "./IProvider";
 import { canProceedWithProvider } from "@core/utilities/ProxyUtils";
 import { UserToolCall, getUserToolNamespacedName } from "@core/chorus/Toolsets";
 import { O3_DEEP_RESEARCH_SYSTEM_PROMPT } from "@core/chorus/prompts/prompts";
+import { parseToolCallArguments } from "@core/chorus/ToolCallArgs";
 
 export class ProviderOpenAI implements IProvider {
     async streamResponse({
@@ -320,15 +321,19 @@ export class ProviderOpenAI implements IProvider {
                 const calledTool = tools?.find(
                     (t) => getUserToolNamespacedName(t) === namespacedToolName,
                 );
+                const { args, parseError } = parseToolCallArguments(
+                    event.item.arguments,
+                );
 
                 // Add to our collection of tool calls
                 toolCalls.push({
                     id: event.item.call_id,
                     namespacedToolName,
-                    args: JSON.parse(event.item.arguments),
+                    args,
                     toolMetadata: {
                         description: calledTool?.description,
                         inputSchema: calledTool?.inputSchema,
+                        ...(parseError ? { parseError } : {}),
                     },
                 });
             }

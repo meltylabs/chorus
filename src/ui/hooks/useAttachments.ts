@@ -221,12 +221,9 @@ export function useAttachUrl({
             const result = await scrapeUrlAndWriteToPath(url, path);
 
             if (!result.success) {
-                toast.error(
-                    "Failed to scrape URL",
-                    {
-                        description: result.error || "Please try again later.",
-                    },
-                );
+                toast.error("Failed to scrape URL", {
+                    description: result.error || "Please try again later.",
+                });
                 if (association.type === "draft") {
                     await deleteDraftAttachment.mutateAsync({
                         attachmentId,

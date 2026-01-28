@@ -190,7 +190,9 @@ function normalizeVertexPublisherModel(model: string): string {
 
     // Allow pasting full resource names.
     // e.g. "publishers/google/models/gemini-2.5-pro" -> "google/gemini-2.5-pro"
-    const publishersMatch = trimmed.match(/^publishers\/([^/]+)\/models\/(.+)$/);
+    const publishersMatch = trimmed.match(
+        /^publishers\/([^/]+)\/models\/(.+)$/,
+    );
     if (publishersMatch) {
         return `${publishersMatch[1]}/${publishersMatch[2]}`;
     }
@@ -304,7 +306,8 @@ export class ProviderVertex implements IProvider {
             stream: true,
         };
 
-        const nativeWebSearchEnabled = enabledToolsets?.includes("web") ?? false;
+        const nativeWebSearchEnabled =
+            enabledToolsets?.includes("web") ?? false;
         const supportsNativeWebSearch =
             modelName.startsWith("google/") && modelName.includes("gemini");
         const shouldUseNativeWebSearch =

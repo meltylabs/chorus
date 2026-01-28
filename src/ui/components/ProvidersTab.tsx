@@ -107,7 +107,10 @@ function ModelsEditor({
                         placeholder="gpt-4o-mini"
                         onChange={(e) => {
                             const next = [...models];
-                            next[idx] = { ...next[idx], modelId: e.target.value };
+                            next[idx] = {
+                                ...next[idx],
+                                modelId: e.target.value,
+                            };
                             onChange(next);
                         }}
                         className="font-mono"
@@ -156,14 +159,16 @@ export function ProvidersTab() {
     const [customProviders, setCustomProviders] = useState<
         CustomProviderSettings[]
     >([]);
-    const [fetchingProviderId, setFetchingProviderId] = useState<
-        string | null
-    >(null);
+    const [fetchingProviderId, setFetchingProviderId] = useState<string | null>(
+        null,
+    );
     const [screen, setScreen] = useState<ProvidersTabScreen>({ type: "list" });
 
     const invalidateModels = async () => {
         await queryClient.invalidateQueries(ModelsAPI.modelQueries.list());
-        await queryClient.invalidateQueries(ModelsAPI.modelConfigQueries.listConfigs());
+        await queryClient.invalidateQueries(
+            ModelsAPI.modelConfigQueries.listConfigs(),
+        );
     };
 
     const persistSettings = async (
@@ -237,7 +242,8 @@ export function ProvidersTab() {
             if (!response.ok) {
                 const errorText = await response.text().catch(() => "");
                 throw new Error(
-                    errorText || `HTTP ${response.status}: ${response.statusText}`,
+                    errorText ||
+                        `HTTP ${response.status}: ${response.statusText}`,
                 );
             }
 
@@ -567,7 +573,9 @@ export function ProvidersTab() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => void fetchModelsForProvider(provider)}
+                                onClick={() =>
+                                    void fetchModelsForProvider(provider)
+                                }
                                 disabled={fetchingProviderId === provider.id}
                             >
                                 <RefreshCcwIcon

@@ -75,7 +75,8 @@ export class ProviderGrok implements IProvider {
             ];
         }
 
-        const nativeWebSearchEnabled = enabledToolsets?.includes("web") ?? false;
+        const nativeWebSearchEnabled =
+            enabledToolsets?.includes("web") ?? false;
         const supportsNativeWebSearch = modelName.startsWith("grok-4");
         const shouldUseNativeWebSearch =
             nativeWebSearchEnabled && supportsNativeWebSearch;
@@ -86,41 +87,59 @@ export class ProviderGrok implements IProvider {
                 const input =
                     convertChatCompletionMessagesToResponsesInput(messages);
 
-                const stream = client.responses.stream({
-                    model: modelName,
-                    input,
-                    tools: [
-                        {
-                            type: "web_search",
-                        },
-                    ],
-                    tool_choice: "auto",
-                });
+                const runSearch = async (tools: OpenAI.Responses.Tool[]) => {
+                    const stream = client.responses.stream({
+                        model: modelName,
+                        input,
+                        tools,
+                        tool_choice: "auto",
+                    });
 
-                for await (const event of stream) {
-                    if (
-                        isPlainObject(event) &&
-                        event["type"] === "response.output_text.delta" &&
-                        typeof event["delta"] === "string"
-                    ) {
-                        onChunk(event["delta"]);
+                    for await (const event of stream) {
+                        if (
+                            isPlainObject(event) &&
+                            event["type"] === "response.output_text.delta" &&
+                            typeof event["delta"] === "string"
+                        ) {
+                            onChunk(event["delta"]);
+                        }
                     }
-                }
 
-                const finalResponse = await stream.finalResponse();
-                const citations = (finalResponse as unknown as Record<
-                    string,
-                    unknown
-                >)?.["citations"];
-                if (Array.isArray(citations) && citations.length > 0) {
-                    const sourcesText = citations
-                        .map((url, index) =>
-                            typeof url === "string"
-                                ? `${index + 1}. [${url}](${url})`
-                                : `${index + 1}. ${safeToString(url)}`,
-                        )
-                        .join("\n");
-                    onChunk(`\n\nSources:\n${sourcesText}`);
+                    const finalResponse = await stream.finalResponse();
+                    const citations = (
+                        finalResponse as unknown as Record<string, unknown>
+                    )?.["citations"];
+                    if (Array.isArray(citations) && citations.length > 0) {
+                        const sourcesText = citations
+                            .map((url, index) =>
+                                typeof url === "string"
+                                    ? `${index + 1}. [${url}](${url})`
+                                    : `${index + 1}. ${safeToString(url)}`,
+                            )
+                            .join("\n");
+                        onChunk(`\n\nSources:\n${sourcesText}`);
+                    }
+                };
+
+                try {
+                    const tools: OpenAI.Responses.Tool[] = [
+                        { type: "web_search" },
+                        // @ts-expect-error xAI supports an additional server-side tool for searching X posts.
+                        { type: "x_search" },
+                    ];
+                    await runSearch(tools);
+                } catch (error) {
+                    const errorText = safeToString(error).toLowerCase();
+                    const xSearchUnsupported =
+                        errorText.includes("x_search") &&
+                        (errorText.includes("unknown") ||
+                            errorText.includes("unsupported") ||
+                            errorText.includes("not supported"));
+                    if (!xSearchUnsupported) {
+                        throw error;
+                    }
+
+                    await runSearch([{ type: "web_search" }]);
                 }
 
                 await onComplete();

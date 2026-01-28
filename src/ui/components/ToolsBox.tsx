@@ -1,4 +1,4 @@
-import { LogsIcon, PlugIcon, PlusIcon } from "lucide-react";
+import { List, PlugIcon, PlusIcon } from "lucide-react";
 import {
     Command,
     CommandDialog,
@@ -9,7 +9,6 @@ import {
 
 import { Switch } from "@ui/components/ui/switch";
 import { Button } from "./ui/button";
-import RetroSpinner from "./ui/retro-spinner";
 import { ArrowRightIcon, Loader2 } from "lucide-react";
 import { getToolsetIcon } from "@core/chorus/Toolsets";
 import { ToolsetConfig, Toolset } from "@core/chorus/Toolsets";
@@ -24,15 +23,47 @@ import { dialogActions, useDialogStore } from "@core/infra/DialogStore";
 import * as ToolsetsAPI from "@core/chorus/api/ToolsetsAPI";
 import { useAppContext } from "@ui/hooks/useAppContext";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
-import { getModelName, getProviderName, ModelConfig } from "@core/chorus/Models";
+import {
+    getModelName,
+    getProviderName,
+    ModelConfig,
+} from "@core/chorus/Models";
 
 export const TOOLS_BOX_DIALOG_ID = "tools-box";
+
+function parseEnabledToolIds(
+    value: string | undefined,
+): Set<string> | undefined {
+    if (value === undefined || value.trim() === "") {
+        return undefined;
+    }
+
+    try {
+        const parsed: unknown = JSON.parse(value);
+        if (!Array.isArray(parsed)) {
+            return undefined;
+        }
+
+        const ids: string[] = [];
+        for (const item of parsed) {
+            if (typeof item === "string") {
+                ids.push(item);
+            }
+        }
+
+        return new Set(ids);
+    } catch {
+        return undefined;
+    }
+}
 
 function normalizeVertexPublisherModelNameForWebSearch(modelName: string) {
     const trimmed = modelName.trim();
     if (!trimmed) return trimmed;
 
-    const publishersMatch = trimmed.match(/^publishers\/([^/]+)\/models\/(.+)$/);
+    const publishersMatch = trimmed.match(
+        /^publishers\/([^/]+)\/models\/(.+)$/,
+    );
     if (publishersMatch) {
         return `${publishersMatch[1]}/${publishersMatch[2]}`;
     }
@@ -105,6 +136,16 @@ function ToolsetRow({
 
     const isEnabled = config?.[toolset.name]?.["enabled"] === "true";
     const canEnable = availability?.canEnable ?? true;
+    const isEffectivelyEnabled =
+        toolset.name === "web" && availability
+            ? isEnabled && availability.canEnable
+            : isEnabled;
+
+    const enabledToolIds = parseEnabledToolIds(
+        config?.[toolset.name]?.["enabled_tools"],
+    );
+    const availableTools = toolset.availableTools;
+    const allAvailableToolIds = availableTools.map((t) => t.id);
 
     const toggleToolset = () => {
         if (!canEnable && !isEnabled) {
@@ -148,7 +189,7 @@ function ToolsetRow({
                             </div>
                         ) : null}
 
-                        {isEnabled && !toolset.isBuiltIn && toolset.logs && (
+                        {isEnabled && !toolset.isBuiltIn && (
                             <Popover>
                                 <PopoverTrigger
                                     asChild
@@ -158,26 +199,145 @@ function ToolsetRow({
                                         variant="ghost"
                                         size="icon"
                                         className="h-5 w-5"
-                                        aria-label="Show logs"
+                                        aria-label="View tools"
                                     >
-                                        <LogsIcon className="w-3 h-3" />
+                                        <List className="w-3 h-3" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent
                                     className="w-96"
-                                    onClick={(e) => e.stopPropagation()} // Prevent closing popover when clicking inside
+                                    onClick={(e) => e.stopPropagation()}
                                 >
-                                    <div className="grid gap-4">
-                                        <div className="space-y-2">
+                                    <div className="grid gap-3">
+                                        <div className="flex items-center justify-between">
                                             <h4 className="font-medium leading-none">
-                                                Server Logs
+                                                Tools
                                             </h4>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        updateMCPConfig.mutate({
+                                                            toolsetName:
+                                                                toolset.name,
+                                                            parameterId:
+                                                                "enabled_tools",
+                                                            value: "",
+                                                        });
+                                                    }}
+                                                >
+                                                    All
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        updateMCPConfig.mutate({
+                                                            toolsetName:
+                                                                toolset.name,
+                                                            parameterId:
+                                                                "enabled_tools",
+                                                            value: "[]",
+                                                        });
+                                                    }}
+                                                >
+                                                    None
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <div className="max-h-60 overflow-y-auto">
-                                            <pre className="text-sm whitespace-pre-wrap break-all font-geist-mono">
-                                                {toolset.logs || "No logs."}
-                                            </pre>
-                                        </div>
+
+                                        {toolset.status.status !== "running" ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                Enable this MCP to discover and
+                                                configure tools.
+                                            </p>
+                                        ) : availableTools.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                No tools discovered yet.
+                                            </p>
+                                        ) : (
+                                            <div className="max-h-64 overflow-y-auto space-y-2">
+                                                {availableTools.map((t) => {
+                                                    const checked =
+                                                        enabledToolIds ===
+                                                            undefined ||
+                                                        enabledToolIds.has(
+                                                            t.id,
+                                                        );
+
+                                                    return (
+                                                        <div
+                                                            key={t.id}
+                                                            className="flex items-start justify-between gap-3"
+                                                        >
+                                                            <div className="flex-1">
+                                                                <div className="font-geist-mono text-sm break-all">
+                                                                    {t.id}
+                                                                </div>
+                                                                {t.description && (
+                                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                                        {
+                                                                            t.description
+                                                                        }
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <Switch
+                                                                checked={
+                                                                    checked
+                                                                }
+                                                                onCheckedChange={(
+                                                                    enabled,
+                                                                ) => {
+                                                                    const current =
+                                                                        enabledToolIds ===
+                                                                        undefined
+                                                                            ? new Set(
+                                                                                  allAvailableToolIds,
+                                                                              )
+                                                                            : new Set(
+                                                                                  enabledToolIds,
+                                                                              );
+
+                                                                    if (
+                                                                        enabled
+                                                                    ) {
+                                                                        current.add(
+                                                                            t.id,
+                                                                        );
+                                                                    } else {
+                                                                        current.delete(
+                                                                            t.id,
+                                                                        );
+                                                                    }
+
+                                                                    const nextValue =
+                                                                        current.size ===
+                                                                        allAvailableToolIds.length
+                                                                            ? ""
+                                                                            : JSON.stringify(
+                                                                                  Array.from(
+                                                                                      current,
+                                                                                  ).sort(),
+                                                                              );
+
+                                                                    updateMCPConfig.mutate(
+                                                                        {
+                                                                            toolsetName:
+                                                                                toolset.name,
+                                                                            parameterId:
+                                                                                "enabled_tools",
+                                                                            value: nextValue,
+                                                                        },
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 </PopoverContent>
                             </Popover>
@@ -196,8 +356,8 @@ function ToolsetRow({
             <div className="flex items-center gap-3 ml-2">
                 {toolset.areRequiredParamsFilled(config) ? (
                     <Switch
-                        disabled={!canEnable && !isEnabled}
-                        checked={isEnabled}
+                        disabled={toolset.name === "web" ? !canEnable : false}
+                        checked={isEffectivelyEnabled}
                         onCheckedChange={(enabled) =>
                             updateMCPConfig.mutate({
                                 toolsetName: toolset.name,
@@ -232,7 +392,8 @@ function ToolsBoxContent() {
     const toolsetConfigs = ToolsetsAPI.useToolsetsConfig();
     const toolsets = ToolsetsAPI.useToolsets();
     const { isQuickChatWindow } = useAppContext();
-    const selectedModelConfigsCompare = ModelsAPI.useSelectedModelConfigsCompare();
+    const selectedModelConfigsCompare =
+        ModelsAPI.useSelectedModelConfigsCompare();
     const selectedModelConfigQuickChat =
         ModelsAPI.useSelectedModelConfigQuickChat();
 
@@ -245,15 +406,20 @@ function ToolsBoxContent() {
         );
     }
 
-    if (toolsetConfigs.isLoading || toolsets.isLoading) {
-        return <RetroSpinner />;
+    if (
+        (toolsetConfigs.isLoading && toolsetConfigs.data === undefined) ||
+        (toolsets.isLoading && toolsets.data === undefined)
+    ) {
+        return (
+            <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+        );
     }
 
     const selectedModels: ModelConfig[] = isQuickChatWindow
         ? selectedModelConfigQuickChat.data
             ? [selectedModelConfigQuickChat.data]
             : []
-        : selectedModelConfigsCompare.data ?? [];
+        : (selectedModelConfigsCompare.data ?? []);
 
     const webSupport = selectedModels.map(supportsNativeWebSearch);
     const webSupportAll = webSupport.length > 0 && webSupport.every(Boolean);
@@ -353,6 +519,11 @@ function ToolsBoxContent() {
 
 function ToolsBox() {
     const toolsets = ToolsetsAPI.useToolsets();
+    const { isQuickChatWindow } = useAppContext();
+    const selectedModelConfigsCompare =
+        ModelsAPI.useSelectedModelConfigsCompare();
+    const selectedModelConfigQuickChat =
+        ModelsAPI.useSelectedModelConfigQuickChat();
     const toolsBoxIsOpen = useDialogStore(
         (state) => state.activeDialogId === TOOLS_BOX_DIALOG_ID,
     );
@@ -371,10 +542,23 @@ function ToolsBox() {
         },
     );
 
+    const selectedModels: ModelConfig[] = isQuickChatWindow
+        ? selectedModelConfigQuickChat.data
+            ? [selectedModelConfigQuickChat.data]
+            : []
+        : (selectedModelConfigsCompare.data ?? []);
+
+    const webCanEnable =
+        selectedModels.length === 0
+            ? true
+            : selectedModels.some(supportsNativeWebSearch);
+
     const enabledToolsets =
-        toolsets.data?.filter(
-            (toolset) => toolset.status.status === "running",
-        ) || [];
+        toolsets.data
+            ?.filter((toolset) => toolset.status.status === "running")
+            .filter((toolset) =>
+                toolset.name === "web" ? webCanEnable : true,
+            ) || [];
 
     return (
         <>
