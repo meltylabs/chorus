@@ -4,6 +4,7 @@ import { IProvider } from "./IProvider";
 import { canProceedWithProvider } from "@core/utilities/ProxyUtils";
 import OpenAICompletionsAPIUtils from "@core/chorus/OpenAICompletionsAPIUtils";
 import JSON5 from "json5";
+import * as Prompts from "@core/chorus/prompts/prompts";
 
 interface ProviderError {
     message: string;
@@ -65,14 +66,17 @@ export class ProviderGrok implements IProvider {
                 },
             );
 
-        if (modelConfig.systemPrompt) {
-            messages = [
-                {
-                    role: "system",
-                    content: modelConfig.systemPrompt,
-                },
-                ...messages,
-            ];
+        const systemPrompt = [
+            modelConfig.showThoughts
+                ? Prompts.THOUGHTS_SYSTEM_PROMPT
+                : undefined,
+            modelConfig.systemPrompt,
+        ]
+            .filter(Boolean)
+            .join("\n\n");
+
+        if (systemPrompt) {
+            messages = [{ role: "system", content: systemPrompt }, ...messages];
         }
 
         const nativeWebSearchEnabled =
@@ -195,11 +199,53 @@ export class ProviderGrok implements IProvider {
         try {
             const stream = await client.chat.completions.create(streamParams);
 
+            let inReasoning = false;
+            let reasoningStartedAtMs: number | undefined;
+
+            const closeReasoning = () => {
+                if (!inReasoning) return;
+                inReasoning = false;
+                onChunk("</think>");
+                if (reasoningStartedAtMs !== undefined) {
+                    const seconds = Math.max(
+                        1,
+                        Math.round((Date.now() - reasoningStartedAtMs) / 1000),
+                    );
+                    onChunk(`<thinkmeta seconds="${seconds}"/>`);
+                }
+                reasoningStartedAtMs = undefined;
+            };
+
             for await (const chunk of stream) {
-                if (chunk.choices[0]?.delta?.content) {
-                    onChunk(chunk.choices[0].delta.content);
+                const delta = chunk.choices[0]?.delta as unknown as {
+                    content?: string;
+                    reasoning?: string;
+                    reasoning_content?: string;
+                };
+
+                const reasoningDelta =
+                    typeof delta?.reasoning === "string"
+                        ? delta.reasoning
+                        : typeof delta?.reasoning_content === "string"
+                          ? delta.reasoning_content
+                          : undefined;
+
+                if (reasoningDelta) {
+                    if (!inReasoning) {
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                    }
+                    onChunk(reasoningDelta);
+                }
+
+                if (delta?.content) {
+                    closeReasoning();
+                    onChunk(delta.content);
                 }
             }
+
+            closeReasoning();
 
             await onComplete();
         } catch (error: unknown) {

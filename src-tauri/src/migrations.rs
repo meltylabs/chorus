@@ -2598,5 +2598,13 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 DROP TABLE model_configs_backup;
             "#,
         },
+        Migration {
+            version: 141,
+            description: "add show_thoughts to model_configs",
+            kind: MigrationKind::Up,
+            sql: r#"
+                ALTER TABLE model_configs ADD COLUMN show_thoughts BOOLEAN NOT NULL DEFAULT 0;
+            "#,
+        },
     ];
 }

@@ -65,33 +65,42 @@ export class ProviderOpenAI implements IProvider {
             modelId.startsWith("gpt-5") || // All GPT-5 models support reasoning
             modelId.startsWith("o"); // All o-series models support reasoning
 
+        const shouldRequestReasoningSummary =
+            Boolean(modelConfig.showThoughts) && isReasoningModel;
+
         // Add system message if needed
-        if (isReasoningModel || modelConfig.systemPrompt) {
-            let systemContent = "";
+        let systemContent = "";
 
-            // Always add formatting message for reasoning models
-            if (isReasoningModel) {
-                systemContent = "Markdown formatting re-enabled.";
+        // OpenAI does not reliably support returning full chain-of-thought for non-reasoning models.
+        // When showThoughts is enabled, we only request server-provided reasoning summaries for
+        // reasoning-capable models (o-series / GPT-5) rather than prompting for <think> tags.
+
+        // Always add formatting message for reasoning models
+        if (isReasoningModel) {
+            systemContent = systemContent
+                ? systemContent + "\n\nMarkdown formatting re-enabled."
+                : "Markdown formatting re-enabled.";
+        }
+
+        // Add special system prompt for o3-deep-research
+        if (modelId === "o3-deep-research") {
+            if (systemContent) {
+                systemContent += "\n" + O3_DEEP_RESEARCH_SYSTEM_PROMPT;
+            } else {
+                systemContent = O3_DEEP_RESEARCH_SYSTEM_PROMPT;
             }
+        }
 
-            // Add special system prompt for o3-deep-research
-            if (modelId === "o3-deep-research") {
-                if (systemContent) {
-                    systemContent += "\n" + O3_DEEP_RESEARCH_SYSTEM_PROMPT;
-                } else {
-                    systemContent = O3_DEEP_RESEARCH_SYSTEM_PROMPT;
-                }
+        // Append system prompt if provided
+        if (modelConfig.systemPrompt) {
+            if (systemContent) {
+                systemContent += `\n ${modelConfig.systemPrompt}`;
+            } else {
+                systemContent = modelConfig.systemPrompt;
             }
+        }
 
-            // Append system prompt if provided
-            if (modelConfig.systemPrompt) {
-                if (systemContent) {
-                    systemContent += `\n ${modelConfig.systemPrompt}`;
-                } else {
-                    systemContent = modelConfig.systemPrompt;
-                }
-            }
-
+        if (systemContent) {
             messages = [
                 { role: "developer", content: systemContent },
                 ...messages,
@@ -148,6 +157,7 @@ export class ProviderOpenAI implements IProvider {
             ...(isReasoningModel && {
                 reasoning: {
                     effort: modelConfig.reasoningEffort || "medium",
+                    ...(shouldRequestReasoningSummary && { summary: "auto" }),
                 },
             }),
         };
@@ -167,6 +177,7 @@ export class ProviderOpenAI implements IProvider {
         if (modelId === "o3-deep-research") {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             createParams.reasoning = {
+                effort: modelConfig.reasoningEffort || "medium",
                 summary: "auto",
             };
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -261,6 +272,25 @@ export class ProviderOpenAI implements IProvider {
                           }>;
                       }>;
                   }>;
+              }
+            | {
+                  type: "response.reasoning_summary_text.delta";
+                  delta: string;
+                  item_id?: string;
+                  output_index?: number;
+                  summary_index?: number;
+              }
+            | {
+                  type: "response.reasoning_summary_text.done";
+                  text: string;
+                  item_id?: string;
+                  output_index?: number;
+                  summary_index?: number;
+              }
+            | {
+                  // Some SDKs emit this alternate event name.
+                  type: "response.reasoning_summary.delta";
+                  delta: string;
               };
 
         // Track tool calls in the streamed response
@@ -275,103 +305,185 @@ export class ProviderOpenAI implements IProvider {
             }
         > = {};
 
-        // Process the streaming response
-        for await (const event of stream as unknown as AsyncIterable<OpenAIStreamEvent>) {
-            // Handle text streaming
-            if (event.type === "response.output_text.delta") {
-                onChunk(event.delta);
-            }
-            // TOOL CALL HANDLING - OpenAI streams tool calls in multiple events:
-            // 1. Tool call initialization
-            else if (
-                event.type === "response.output_item.added" &&
-                event.item.type === "function_call"
-            ) {
-                // Initialize the tool call structure when first encountered
-                accumulatedToolCalls[event.item.id] = {
-                    id: event.item.id,
-                    call_id: event.item.call_id,
-                    name: event.item.name,
-                    arguments: event.item.arguments || "",
-                };
-            }
-            // 2. Tool call arguments streaming (may come in multiple chunks)
-            else if (event.type === "response.function_call_arguments.delta") {
-                // Accumulate argument JSON as it streams in
-                if (accumulatedToolCalls[event.item_id]) {
-                    accumulatedToolCalls[event.item_id].arguments +=
-                        event.delta;
-                }
-            }
-            // 3. Tool call arguments complete (contains full arguments)
-            else if (event.type === "response.function_call_arguments.done") {
-                // Use the complete arguments
-                if (accumulatedToolCalls[event.item_id]) {
-                    accumulatedToolCalls[event.item_id].arguments =
-                        event.arguments;
-                }
-            }
-            // 4. Tool call fully complete
-            else if (
-                event.type === "response.output_item.done" &&
-                event.item.type === "function_call"
-            ) {
-                // Convert completed tool call to our internal ToolCall format
-                const namespacedToolName = event.item.name;
-                const calledTool = tools?.find(
-                    (t) => getUserToolNamespacedName(t) === namespacedToolName,
+        let inReasoningSummary = false;
+        let reasoningSummaryText = "";
+        let reasoningSummaryStartedAtMs: number | undefined;
+        let sawOutputText = false;
+
+        const closeReasoningSummary = () => {
+            if (!inReasoningSummary) return;
+            inReasoningSummary = false;
+            onChunk("</think>");
+            if (reasoningSummaryStartedAtMs !== undefined) {
+                const seconds = Math.max(
+                    1,
+                    Math.round(
+                        (Date.now() - reasoningSummaryStartedAtMs) / 1000,
+                    ),
                 );
-                const { args, parseError } = parseToolCallArguments(
-                    event.item.arguments,
-                );
-
-                // Add to our collection of tool calls
-                toolCalls.push({
-                    id: event.item.call_id,
-                    namespacedToolName,
-                    args,
-                    toolMetadata: {
-                        description: calledTool?.description,
-                        inputSchema: calledTool?.inputSchema,
-                        ...(parseError ? { parseError } : {}),
-                    },
-                });
+                onChunk(`<thinkmeta seconds="${seconds}"/>`);
             }
-            // 5. Handle response.done event for citations
-            else if (event.type === "response.done" && event.output) {
-                // Process citations from o3-deep-research
-                for (const output of event.output) {
-                    if (output.content) {
-                        for (const content of output.content) {
-                            if (
-                                content.annotations &&
-                                content.annotations.length > 0
-                            ) {
-                                // Format citations as plain text
-                                let citationText = "\n\n---\n**Citations:**\n";
+            onChunk("\n\n");
+            reasoningSummaryStartedAtMs = undefined;
+        };
 
-                                for (const citation of content.annotations) {
-                                    citationText += `\n- **${citation.title}**\n`;
-                                    citationText += `  URL: ${citation.url}\n`;
+        try {
+            // Process the streaming response
+            for await (const event of stream as unknown as AsyncIterable<OpenAIStreamEvent>) {
+                if (
+                    shouldRequestReasoningSummary &&
+                    !sawOutputText &&
+                    (event.type === "response.reasoning_summary_text.delta" ||
+                        event.type === "response.reasoning_summary.delta")
+                ) {
+                    if (!inReasoningSummary) {
+                        inReasoningSummary = true;
+                        reasoningSummaryText = "";
+                        reasoningSummaryStartedAtMs = Date.now();
+                        onChunk("<think>");
+                    }
+                    reasoningSummaryText += event.delta;
+                    onChunk(event.delta);
+                } else if (
+                    shouldRequestReasoningSummary &&
+                    !sawOutputText &&
+                    event.type === "response.reasoning_summary_text.done"
+                ) {
+                    if (!inReasoningSummary) {
+                        inReasoningSummary = true;
+                        reasoningSummaryText = "";
+                        reasoningSummaryStartedAtMs = Date.now();
+                        onChunk("<think>");
+                    }
+                    if (!reasoningSummaryText && event.text) {
+                        onChunk(event.text);
+                    }
+                    closeReasoningSummary();
+                }
+                // Handle text streaming
+                else if (event.type === "response.output_text.delta") {
+                    sawOutputText = true;
+                    if (inReasoningSummary) {
+                        closeReasoningSummary();
+                    }
+                    const deltaText =
+                        shouldRequestReasoningSummary &&
+                        (event.delta.includes("<think") ||
+                            event.delta.includes("</think") ||
+                            event.delta.includes("<thought") ||
+                            event.delta.includes("</thought"))
+                            ? event.delta
+                                  .replace(/<think/g, "&lt;think")
+                                  .replace(/<\/think/g, "&lt;/think")
+                                  .replace(/<thought/g, "&lt;thought")
+                                  .replace(/<\/thought/g, "&lt;/thought")
+                            : event.delta;
 
-                                    // Extract the cited text if we have the full text
-                                    if (content.text) {
-                                        const citedText =
-                                            content.text.substring(
-                                                citation.start_index,
-                                                citation.end_index,
-                                            );
-                                        citationText += `  Cited text: "${citedText}"\n`;
+                    onChunk(deltaText);
+                }
+                // TOOL CALL HANDLING - OpenAI streams tool calls in multiple events:
+                // 1. Tool call initialization
+                else if (
+                    event.type === "response.output_item.added" &&
+                    event.item.type === "function_call"
+                ) {
+                    // Initialize the tool call structure when first encountered
+                    accumulatedToolCalls[event.item.id] = {
+                        id: event.item.id,
+                        call_id: event.item.call_id,
+                        name: event.item.name,
+                        arguments: event.item.arguments || "",
+                    };
+                }
+                // 2. Tool call arguments streaming (may come in multiple chunks)
+                else if (
+                    event.type === "response.function_call_arguments.delta"
+                ) {
+                    // Accumulate argument JSON as it streams in
+                    if (accumulatedToolCalls[event.item_id]) {
+                        accumulatedToolCalls[event.item_id].arguments +=
+                            event.delta;
+                    }
+                }
+                // 3. Tool call arguments complete (contains full arguments)
+                else if (
+                    event.type === "response.function_call_arguments.done"
+                ) {
+                    // Use the complete arguments
+                    if (accumulatedToolCalls[event.item_id]) {
+                        accumulatedToolCalls[event.item_id].arguments =
+                            event.arguments;
+                    }
+                }
+                // 4. Tool call fully complete
+                else if (
+                    event.type === "response.output_item.done" &&
+                    event.item.type === "function_call"
+                ) {
+                    // Convert completed tool call to our internal ToolCall format
+                    const namespacedToolName = event.item.name;
+                    const calledTool = tools?.find(
+                        (t) =>
+                            getUserToolNamespacedName(t) === namespacedToolName,
+                    );
+                    const { args, parseError } = parseToolCallArguments(
+                        event.item.arguments,
+                    );
+
+                    // Add to our collection of tool calls
+                    toolCalls.push({
+                        id: event.item.call_id,
+                        namespacedToolName,
+                        args,
+                        toolMetadata: {
+                            description: calledTool?.description,
+                            inputSchema: calledTool?.inputSchema,
+                            ...(parseError ? { parseError } : {}),
+                        },
+                    });
+                }
+                // 5. Handle response.done event for citations
+                else if (event.type === "response.done" && event.output) {
+                    if (inReasoningSummary) {
+                        closeReasoningSummary();
+                    }
+                    // Process citations from o3-deep-research
+                    for (const output of event.output) {
+                        if (output.content) {
+                            for (const content of output.content) {
+                                if (
+                                    content.annotations &&
+                                    content.annotations.length > 0
+                                ) {
+                                    // Format citations as plain text
+                                    let citationText =
+                                        "\n\n---\n**Citations:**\n";
+
+                                    for (const citation of content.annotations) {
+                                        citationText += `\n- **${citation.title}**\n`;
+                                        citationText += `  URL: ${citation.url}\n`;
+
+                                        // Extract the cited text if we have the full text
+                                        if (content.text) {
+                                            const citedText =
+                                                content.text.substring(
+                                                    citation.start_index,
+                                                    citation.end_index,
+                                                );
+                                            citationText += `  Cited text: "${citedText}"\n`;
+                                        }
                                     }
-                                }
 
-                                // Send the citations as a text chunk
-                                onChunk(citationText);
+                                    // Send the citations as a text chunk
+                                    onChunk(citationText);
+                                }
                             }
                         }
                     }
                 }
             }
+        } finally {
+            closeReasoningSummary();
         }
 
         await onComplete(
@@ -399,9 +511,17 @@ async function formatBasicMessage(
     } else {
         return {
             role: message.role,
-            content: message.content,
+            content: stripThinkBlocks(message.content || ""),
         };
     }
+}
+
+function stripThinkBlocks(text: string): string {
+    return text
+        .replace(/<think(?:\s+[^>]*?)?>[\s\S]*?<\/think\s*>/g, "")
+        .replace(/<thought(?:\s+[^>]*?)?>[\s\S]*?<\/thought\s*>/g, "")
+        .replace(/<thinkmeta\s+seconds="\d+"\s*\/>/g, "")
+        .trim();
 }
 
 async function formamtUserMessageWithAttachments(
@@ -503,7 +623,7 @@ async function convertConversationToOpenAI(
             // First add the assistant message with content
             openaiMessages.push({
                 role: "assistant",
-                content: message.content || "",
+                content: stripThinkBlocks(message.content || ""),
             });
 
             // Then add each tool call as a separate message in OpenAI format

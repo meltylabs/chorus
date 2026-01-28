@@ -127,12 +127,20 @@ const Td = ({ children }: { children?: ReactNode }) => {
 const Think = ({
     children,
     complete,
+    seconds,
 }: {
     children?: React.ReactNode;
     complete?: string;
+    seconds?: string;
 }) => {
     const content = extractTextFromChildren(children);
-    return <ThinkBlock content={content} isComplete={complete === "true"} />;
+    return (
+        <ThinkBlock
+            content={content}
+            isComplete={complete === "true"}
+            seconds={seconds}
+        />
+    );
 };
 
 export const Img = ({ src, alt }: { src?: string; alt?: string }) => {
@@ -227,19 +235,29 @@ export const MessageMarkdown = ({ text }: { text: string }) => {
     // Also, change <thought> to <think>, since Google uses <thought> (apparently)
     const processedMainText = mainText
         .replace(
-            /&lt;think&gt;([\s\S]*?)(?:&lt;\/think&gt;|$)/g,
-            (_match, content) => {
-                const isComplete = _match.endsWith("&lt;/think&gt;");
-                // we have to surround <think> with newlines to appease the Markdown parser, which is apparently sensitive to whitespace
-                return `<think complete="${isComplete}">\n${content}\n</think>\n\n`;
+            /&lt;think(?:\s+[^]*?)?&gt;([\s\S]*?)&lt;\/think\s*&gt;\s*(?:&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;)?/g,
+            (_match, content, seconds: string | undefined) => {
+                const secondsAttr = seconds ? ` seconds="${seconds}"` : "";
+                return `<think complete="true"${secondsAttr}>\n${content}\n</think>\n\n`;
             },
         )
         .replace(
-            /&lt;thought&gt;([\s\S]*?)(?:&lt;\/thought&gt;|$)/g,
+            /&lt;thought(?:\s+[^]*?)?&gt;([\s\S]*?)&lt;\/thought\s*&gt;\s*(?:&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;)?/g,
+            (_match, content, seconds: string | undefined) => {
+                const secondsAttr = seconds ? ` seconds="${seconds}"` : "";
+                return `<think complete="true"${secondsAttr}>\n${content}\n</think>\n\n`;
+            },
+        )
+        .replace(
+            /&lt;think(?:\s+[^]*?)?&gt;([\s\S]*?)$/g,
             (_match, content) => {
-                // see comment above re the newlines
-                const isComplete = _match.endsWith("&lt;/think&gt;");
-                return `<think complete="${isComplete}">\n${content}\n</think>\n\n`;
+                return `<think complete="false">\n${content}\n</think>\n\n`;
+            },
+        )
+        .replace(
+            /&lt;thought(?:\s+[^]*?)?&gt;([\s\S]*?)$/g,
+            (_match, content) => {
+                return `<think complete="false">\n${content}\n</think>\n\n`;
             },
         );
 

@@ -217,6 +217,7 @@ export type ModelConfig = {
     budgetTokens?: number; // optional token budget for thinking mode (Anthropic, Gemini 2.5)
     reasoningEffort?: "low" | "medium" | "high" | "xhigh"; // OpenAI o1/o3/GPT-5, xAI Grok
     thinkingLevel?: "LOW" | "HIGH"; // Google Gemini 3 thinking level
+    showThoughts?: boolean; // request a collapsible <think> block in the output (persisted)
 
     // pricing (from models table)
     promptPricePerToken?: number;
@@ -392,9 +393,34 @@ export async function saveModelAndDefaultConfig(
         completionPricePerToken?: number;
     },
 ): Promise<void> {
-    // insert or replace is important. this way I can have a refresh where Ollama / LM studio models are set to disabled if they're not running, and enabled if they are
+    // For remote providers, preserve user-controlled enable/disable state across refreshes.
+    // For local/curated providers (Ollama/LM Studio/Vertex/Custom Providers), treat refresh as
+    // authoritative and overwrite is_enabled.
+    const providerId = model.id.split("::")[0] ?? "";
+    const shouldOverwriteIsEnabled =
+        providerId === "ollama" ||
+        providerId === "lmstudio" ||
+        providerId === "vertex" ||
+        providerId === "custom_openai" ||
+        providerId === "custom_anthropic";
+
     await db.execute(
-        "INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types, is_internal, prompt_price_per_token, completion_price_per_token) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        `INSERT INTO models (
+            id,
+            display_name,
+            is_enabled,
+            supported_attachment_types,
+            is_internal,
+            prompt_price_per_token,
+            completion_price_per_token
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            display_name = excluded.display_name,
+            supported_attachment_types = excluded.supported_attachment_types,
+            is_internal = excluded.is_internal,
+            prompt_price_per_token = excluded.prompt_price_per_token,
+            completion_price_per_token = excluded.completion_price_per_token
+            ${shouldOverwriteIsEnabled ? ", is_enabled = excluded.is_enabled" : ""}`,
         [
             model.id,
             model.displayName,
@@ -405,8 +431,16 @@ export async function saveModelAndDefaultConfig(
             pricing?.completionPricePerToken ?? null,
         ],
     );
+
+    // Create the default model_config row if missing; on refresh, only update the display name
+    // and linkage, preserving user-controlled fields (system_prompt, thinking params, etc).
     await db.execute(
-        "INSERT OR REPLACE INTO model_configs (id, display_name, author, model_id, system_prompt) VALUES (?, ?, ?, ?, ?)",
+        `INSERT INTO model_configs (id, display_name, author, model_id, system_prompt)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+             display_name = excluded.display_name,
+             author = excluded.author,
+             model_id = excluded.model_id`,
         [model.id, modelConfigDisplayName, "system", model.id, ""],
     );
 }
@@ -544,10 +578,6 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
         }[];
     };
 
-    await db.execute(
-        "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openrouter::%'",
-    );
-
     await Promise.all(
         openRouterModels.map((model) => {
             // Check if the model supports images based on API metadata
@@ -675,10 +705,6 @@ export async function downloadOpenAIModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openai::%'",
-        );
-
         if (!apiKeys.openai) {
             console.log(
                 "No OpenAI API key configured, skipping model download",
@@ -738,9 +764,6 @@ export async function downloadOpenAIModels(
         }
     } catch (error) {
         console.error("Error downloading OpenAI models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openai::%'",
-        );
     }
 }
 
@@ -847,10 +870,6 @@ export async function downloadGoogleModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'google::%'",
-        );
-
         if (!apiKeys.google) {
             console.log(
                 "No Google API key configured, skipping model download",
@@ -906,9 +925,6 @@ export async function downloadGoogleModels(
         }
     } catch (error) {
         console.error("Error downloading Google models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'google::%'",
-        );
     }
 }
 
@@ -921,10 +937,6 @@ export async function downloadGrokModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'grok::%'",
-        );
-
         if (!apiKeys.grok) {
             console.log("No Grok API key configured, skipping model download");
             return;
@@ -966,9 +978,6 @@ export async function downloadGrokModels(
         }
     } catch (error) {
         console.error("Error downloading xAI Grok models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'grok::%'",
-        );
     }
 }
 
@@ -1120,10 +1129,6 @@ export async function downloadGroqModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'groq::%'",
-        );
-
         if (!apiKeys.groq) {
             return;
         }
@@ -1153,9 +1158,6 @@ export async function downloadGroqModels(
         }
     } catch (error) {
         console.error("Error downloading Groq models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'groq::%'",
-        );
     }
 }
 
@@ -1167,10 +1169,6 @@ export async function downloadMistralModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'mistral::%'",
-        );
-
         if (!apiKeys.mistral) {
             return;
         }
@@ -1200,9 +1198,6 @@ export async function downloadMistralModels(
         }
     } catch (error) {
         console.error("Error downloading Mistral models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'mistral::%'",
-        );
     }
 }
 
@@ -1214,10 +1209,6 @@ export async function downloadCerebrasModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'cerebras::%'",
-        );
-
         if (!apiKeys.cerebras) {
             return;
         }
@@ -1247,9 +1238,6 @@ export async function downloadCerebrasModels(
         }
     } catch (error) {
         console.error("Error downloading Cerebras models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'cerebras::%'",
-        );
     }
 }
 
@@ -1261,10 +1249,6 @@ export async function downloadFireworksModels(
     apiKeys: ApiKeys,
 ): Promise<void> {
     try {
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'fireworks::%'",
-        );
-
         if (!apiKeys.fireworks) {
             return;
         }
@@ -1295,8 +1279,5 @@ export async function downloadFireworksModels(
         }
     } catch (error) {
         console.error("Error downloading Fireworks models:", error);
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'fireworks::%'",
-        );
     }
 }

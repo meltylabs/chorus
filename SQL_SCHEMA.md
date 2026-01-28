@@ -2,7 +2,7 @@
 
 _This file is auto-generated from migrations.rs. Do not edit manually._
 
-Last updated: 2026-01-27 15:19:55
+Last updated: 2026-01-28 14:35:11
 
 ## Tables
 
@@ -244,6 +244,7 @@ Last updated: 2026-01-27 15:19:55
 | reasoning_effort | TEXT     | -                    | -                 |
 | new_until        | DATETIME | -                    | -                 |
 | thinking_level   | TEXT     | -                    | -                 |
+| show_thoughts    | BOOLEAN  | NOT NULL             | 0                 |
 
 ## models
 

@@ -2,6 +2,19 @@
 import { ModelConfig } from "../Models";
 import { ToolsetStatus } from "../Toolsets";
 
+export const THOUGHTS_SYSTEM_PROMPT = `You MUST follow this exact output format:
+
+<think>
+Brief, high-level reasoning only (concise; no hidden chain-of-thought).
+</think>
+
+Final answer in GitHub-flavored Markdown.
+
+Rules:
+- The final answer MUST be outside the <think> block.
+- Always include the closing </think> tag before the final answer.
+- Do not include anything except the brief reasoning inside <think>.`;
+
 export const IDEA_INTERJECTION = `!! SYSTEM_MESSAGE !!
 Please generate several ideas.`;
 

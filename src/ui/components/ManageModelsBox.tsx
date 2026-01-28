@@ -515,7 +515,8 @@ export function ManageModelsBox({
             .filter(Boolean);
 
         const nonInternalModelConfigs =
-            modelConfigs.data?.filter((m) => !m.isInternal) ?? [];
+            modelConfigs.data?.filter((m) => !m.isInternal && m.isEnabled) ??
+            [];
         const systemModels = nonInternalModelConfigs.filter(
             (m) => m.author === "system",
         );

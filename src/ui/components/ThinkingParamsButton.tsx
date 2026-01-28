@@ -11,6 +11,7 @@ import {
     SelectValue,
 } from "./ui/select";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import {
     ModelConfig,
     getModelName,
@@ -99,13 +100,34 @@ export function ThinkingParamsButton({
 
     // Determine which parameters to show based on provider
     const showReasoningEffort =
-        providerName === "openai" || providerName === "grok";
+        providerName === "openai" ||
+        providerName === "grok" ||
+        providerName === "fireworks";
     const showBudgetTokens =
         providerName === "anthropic" || modelName?.includes("gemini-2.5");
     const showThinkingLevel = modelName?.includes("gemini-3");
 
+    const openaiSupportsShowThoughts =
+        providerName === "openai" &&
+        (modelName?.startsWith("gpt-5") || modelName?.startsWith("o"));
+
+    const showThoughtsToggle =
+        openaiSupportsShowThoughts ||
+        (providerName === "openai" && Boolean(modelConfig.showThoughts)) ||
+        providerName === "grok" ||
+        providerName === "anthropic" ||
+        providerName === "openrouter" ||
+        providerName === "fireworks" ||
+        providerName === "cerebras" ||
+        modelName?.includes("gemini");
+
     // Don't show the button if no thinking parameters are applicable
-    if (!showReasoningEffort && !showBudgetTokens && !showThinkingLevel) {
+    if (
+        !showReasoningEffort &&
+        !showBudgetTokens &&
+        !showThinkingLevel &&
+        !showThoughtsToggle
+    ) {
         return null;
     }
 
@@ -113,7 +135,8 @@ export function ThinkingParamsButton({
     const hasThinkingParams =
         modelConfig.budgetTokens ||
         modelConfig.reasoningEffort ||
-        modelConfig.thinkingLevel;
+        modelConfig.thinkingLevel ||
+        modelConfig.showThoughts;
 
     // Each handler ONLY updates its own field - avoids stale closure issues
     const handleReasoningEffortChange = async (value: string) => {
@@ -194,6 +217,17 @@ export function ThinkingParamsButton({
         }, 500);
     };
 
+    const handleShowThoughtsChange = async (checked: boolean) => {
+        try {
+            await updateThinkingParams.mutateAsync({
+                modelConfigId: modelConfig.id,
+                showThoughts: checked,
+            });
+        } catch (_error) {
+            toast.error("Failed to update thoughts setting");
+        }
+    };
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -209,7 +243,9 @@ export function ThinkingParamsButton({
                                 modelConfig.thinkingLevel ||
                                 (modelConfig.budgetTokens
                                     ? `${modelConfig.budgetTokens}t`
-                                    : "")}
+                                    : modelConfig.showThoughts
+                                      ? "thoughts"
+                                      : "")}
                         </span>
                     )}
                 </Button>
@@ -224,6 +260,22 @@ export function ThinkingParamsButton({
                             Control how much the model thinks before responding
                         </p>
                     </div>
+
+                    {showThoughtsToggle && (
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="space-y-0.5">
+                                <Label className="text-xs">Show thoughts</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Adds a collapsible &lt;think&gt; block to
+                                    the response (persisted).
+                                </p>
+                            </div>
+                            <Switch
+                                checked={Boolean(modelConfig.showThoughts)}
+                                onCheckedChange={handleShowThoughtsChange}
+                            />
+                        </div>
+                    )}
 
                     {showReasoningEffort && (
                         <div className="space-y-2">
@@ -240,6 +292,11 @@ export function ThinkingParamsButton({
                                 {providerName === "grok" && (
                                     <span className="text-muted-foreground ml-1">
                                         (xAI Grok)
+                                    </span>
+                                )}
+                                {providerName === "fireworks" && (
+                                    <span className="text-muted-foreground ml-1">
+                                        (Fireworks)
                                     </span>
                                 )}
                             </Label>

@@ -8,32 +8,42 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@ui/components/ui/collapsible";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export const ThinkBlock = ({
     content,
     isComplete,
+    seconds,
 }: {
     content: string;
     isComplete: boolean;
+    seconds?: string;
 }) => {
+    const trimmedContent = typeof content === "string" ? content.trim() : "";
     const [isOpen, setIsOpen] = useState(!isComplete);
-    const prevIsCompleteRef = useRef<boolean>();
+    const [sawComplete, setSawComplete] = useState(isComplete);
 
-    // When the block transitions from incomplete to complete, close it
     useEffect(() => {
-        if (
-            prevIsCompleteRef.current === false &&
-            isComplete === true &&
-            isOpen
-        ) {
+        if (!sawComplete && isComplete) {
             setIsOpen(false);
+            setSawComplete(true);
         }
-        prevIsCompleteRef.current = isComplete;
-    }, [isComplete, isOpen]);
+    }, [isComplete, sawComplete]);
 
-    // Don't render anything if children is empty
-    if (!content || (typeof content === "string" && content.trim() === "")) {
+    const durationSeconds = useMemo(() => {
+        if (!seconds) return undefined;
+        const parsed = Number.parseInt(seconds, 10);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }, [seconds]);
+
+    const label = isComplete
+        ? durationSeconds !== undefined
+            ? `Thought for ${durationSeconds} seconds`
+            : "Thought"
+        : "Thinking";
+
+    // Don't render anything if content is empty
+    if (!trimmedContent) {
         return null;
     }
 
@@ -41,31 +51,23 @@ export const ThinkBlock = ({
         <Collapsible
             open={isOpen}
             onOpenChange={setIsOpen}
-            className="my-4 rounded-md text-muted-foreground text-sm py-1.5 px-1.5 border w-fit max-w-full"
+            className="my-4 max-w-full"
             onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                 e.stopPropagation(); // prevent message from selecting
             }}
         >
-            <CollapsibleTrigger className="group font-geist-mono font-[350] text-left flex items-center justify-left hover:text-foreground">
-                <div className="flex items-center">
-                    {!isComplete ? (
-                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                    ) : (
-                        <div className="mr-2">
-                            <BrainIcon className="w-3 h-3" />
-                        </div>
-                    )}
-                    Thoughts
-                </div>
-                <div className="ml-auto flex items-center">
-                    <ChevronDownIcon className="w-3 h-3 ml-4 inline-block transition-transform group-data-[state=open]:rotate-180" />
-                </div>
+            <CollapsibleTrigger className="group inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-left font-geist-mono text-xs font-[350] text-muted-foreground hover:text-foreground">
+                {!isComplete ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                    <BrainIcon className="h-3 w-3" />
+                )}
+                <span className="truncate">{label}</span>
+                <ChevronDownIcon className="h-3 w-3 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent className="">
-                <div className="">
-                    <div className="px-2 py-4 text-sm text-muted-foreground whitespace-pre-wrap">
-                        {content.trim()}
-                    </div>
+                <div className="mt-2 rounded-md border px-3 py-3 text-sm text-muted-foreground whitespace-pre-wrap">
+                    {trimmedContent}
                 </div>
             </CollapsibleContent>
         </Collapsible>

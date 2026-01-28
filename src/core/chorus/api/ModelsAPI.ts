@@ -67,6 +67,7 @@ type ModelConfigDBRow = {
     budget_tokens: number | null;
     reasoning_effort: "low" | "medium" | "high" | "xhigh" | null;
     thinking_level: "LOW" | "HIGH" | null;
+    show_thoughts: boolean;
     new_until?: string;
     prompt_price_per_token: number | null;
     completion_price_per_token: number | null;
@@ -148,6 +149,7 @@ function readModelConfig(row: ModelConfigDBRow): ModelConfig {
         budgetTokens: row.budget_tokens ?? undefined,
         reasoningEffort: row.reasoning_effort ?? undefined,
         thinkingLevel: row.thinking_level ?? undefined,
+        showThoughts: Boolean(row.show_thoughts),
         newUntil: row.new_until ?? undefined,
         promptPricePerToken: row.prompt_price_per_token ?? undefined,
         completionPricePerToken: row.completion_price_per_token ?? undefined,
@@ -266,7 +268,7 @@ export async function fetchModelConfigs() {
             `SELECT model_configs.id, model_configs.display_name, model_configs.author,
                         model_configs.model_id, model_configs.system_prompt, models.is_enabled,
                         models.is_internal, models.supported_attachment_types, model_configs.is_default,
-                        models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.thinking_level, model_configs.new_until,
+                        models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.thinking_level, model_configs.show_thoughts, model_configs.new_until,
                         models.prompt_price_per_token, models.completion_price_per_token
                  FROM model_configs
                  JOIN models ON model_configs.model_id = models.id
@@ -309,6 +311,7 @@ SELECT
   mc.budget_tokens,
   mc.reasoning_effort,
   mc.thinking_level,
+  mc.show_thoughts,
   em.original_order,
   m.prompt_price_per_token,
   m.completion_price_per_token
@@ -350,6 +353,7 @@ SELECT
   mc.budget_tokens,
   mc.reasoning_effort,
   mc.thinking_level,
+  mc.show_thoughts,
   m.prompt_price_per_token,
   m.completion_price_per_token
 FROM
@@ -389,6 +393,7 @@ SELECT
   mc.budget_tokens,
   mc.reasoning_effort,
   mc.thinking_level,
+  mc.show_thoughts,
   m.prompt_price_per_token,
   m.completion_price_per_token
 FROM
@@ -409,7 +414,7 @@ export async function fetchModelConfigById(
         `SELECT model_configs.id, model_configs.display_name, model_configs.author,
                     model_configs.model_id, model_configs.system_prompt, models.is_enabled,
                     models.is_internal, models.supported_attachment_types, model_configs.is_default,
-                    models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.thinking_level, model_configs.new_until,
+                    models.is_deprecated, model_configs.budget_tokens, model_configs.reasoning_effort, model_configs.thinking_level, model_configs.show_thoughts, model_configs.new_until,
                     models.prompt_price_per_token, models.completion_price_per_token
              FROM model_configs
              JOIN models ON model_configs.model_id = models.id
@@ -748,11 +753,13 @@ export function useUpdateThinkingParams() {
             budgetTokens,
             reasoningEffort,
             thinkingLevel,
+            showThoughts,
         }: {
             modelConfigId: string;
             budgetTokens?: number | null;
             reasoningEffort?: "low" | "medium" | "high" | "xhigh" | null;
             thinkingLevel?: "LOW" | "HIGH" | null;
+            showThoughts?: boolean;
         }) => {
             // Build dynamic SQL to only update fields that are provided
             // This avoids the stale closure issue where other params get overwritten
@@ -775,6 +782,12 @@ export function useUpdateThinkingParams() {
             if (thinkingLevel !== undefined) {
                 updates.push(`thinking_level = $${paramIndex}`);
                 params.push(thinkingLevel);
+                paramIndex++;
+            }
+
+            if (showThoughts !== undefined) {
+                updates.push(`show_thoughts = $${paramIndex}`);
+                params.push(showThoughts ? 1 : 0);
                 paramIndex++;
             }
 
