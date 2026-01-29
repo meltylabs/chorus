@@ -10,7 +10,6 @@ import {
     RiQuestionMark,
     RiMetaFill,
 } from "react-icons/ri";
-import { SiOllama } from "react-icons/si";
 
 // can pass in either provider or modelId. provider takes precedence over modelId
 export type ProviderLogoProps = {
@@ -51,11 +50,6 @@ export function ProviderLogo({
                 return <RiGoogleFill className="w-4 h-4" />;
             case "perplexity":
                 return <RiPerplexityFill className="w-4 h-4" />;
-            case "ollama":
-                return <SiOllama className="w-4 h-4" />;
-            case "lmstudio":
-                // TODO: Add LMStudio logo
-                return <BoxIcon className="w-4 h-4" />;
             case "meta":
                 return <RiMetaFill className="w-4 h-4" />;
             case "grok":

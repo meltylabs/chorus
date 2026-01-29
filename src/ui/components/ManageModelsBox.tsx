@@ -179,11 +179,6 @@ function ModelGroup({
         (model: ModelConfig) => {
             const provider = getProviderName(model.modelId);
 
-            // Local models (ollama) don't require API keys
-            if (provider === "ollama") {
-                return false;
-            }
-
             // Vertex models require Vertex AI settings (credentials).
             if (provider === "vertex") {
                 const vertex = appSettings?.vertexAI;
@@ -394,7 +389,6 @@ export function ManageModelsBox({
     const [spinningProviders, setSpinningProviders] = useState<
         Record<string, boolean>
     >({
-        ollama: false,
         openrouter: false,
     });
     const listRef = useRef<HTMLDivElement>(null);
@@ -479,17 +473,12 @@ export function ManageModelsBox({
         checkScroll();
     }, [checkScroll]);
 
-    const refreshOllama = ModelsAPI.useRefreshOllamaModels();
     const refreshOpenRouter = ModelsAPI.useRefreshOpenRouterModels();
 
-    const handleRefreshProviders = async (
-        provider: "ollama" | "openrouter",
-    ) => {
+    const handleRefreshProviders = async (provider: "openrouter") => {
         setSpinningProviders((prev) => ({ ...prev, [provider]: true }));
         try {
-            if (provider === "ollama") {
-                await refreshOllama.mutateAsync();
-            } else if (provider === "openrouter") {
+            if (provider === "openrouter") {
                 await refreshOpenRouter.mutateAsync();
             }
         } finally {
@@ -523,11 +512,6 @@ export function ManageModelsBox({
         const userModels = nonInternalModelConfigs.filter(
             (m) => m.author === "user",
         );
-
-        const localModels = systemModels.filter((m) => {
-            const provider = getProviderName(m.modelId);
-            return provider === "ollama";
-        });
 
         const openrouterModels = systemModels.filter(
             (m) => getProviderName(m.modelId) === "openrouter",
@@ -611,7 +595,6 @@ export function ManageModelsBox({
 
         return {
             custom: filterBySearch(userModels, searchTerms),
-            local: filterBySearch(localModels, searchTerms),
             openrouter: filterBySearch(openrouterModels, searchTerms),
             vertex: filterBySearch(vertexModels, searchTerms),
             customProviders,
@@ -1013,76 +996,6 @@ export function ManageModelsBox({
                             showCost={showCost}
                         />
                     )}
-
-                    {/* Local Models */}
-                    <ModelGroup
-                        heading="Local"
-                        models={modelGroups.local}
-                        checkedModelConfigIds={checkedModelConfigIds}
-                        mode={mode}
-                        onToggleModelConfig={handleToggleModelConfig}
-                        onAddApiKey={handleAddApiKey}
-                        groupId="local"
-                        showCost={showCost}
-                        refreshButton={
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    void handleRefreshProviders("ollama");
-                                }}
-                                className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
-                                title="Refresh local models"
-                            >
-                                <RefreshCcwIcon
-                                    className={`w-3 h-3 ${
-                                        spinningProviders["ollama"]
-                                            ? "animate-spin"
-                                            : ""
-                                    }`}
-                                />
-                                <span className="text-sm">Refresh</span>
-                            </button>
-                        }
-                        emptyState={
-                            modelGroups.local.length === 0 ? (
-                                <div className="flex flex-col gap-2 px-2">
-                                    <div className="text-sm text-muted-foreground">
-                                        No local models found. To run local
-                                        models, run Ollama locally and refresh,
-                                        or add a local OpenAI-compatible
-                                        endpoint as a Custom Provider (e.g. LM
-                                        Studio at{" "}
-                                        <span className="font-mono">
-                                            http://localhost:1234/v1
-                                        </span>
-                                        ).
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={(
-                                            e: React.MouseEvent<HTMLButtonElement>,
-                                        ) => {
-                                            e.preventDefault();
-                                            void handleRefreshProviders(
-                                                "ollama",
-                                            );
-                                        }}
-                                        title="Refresh local models"
-                                    >
-                                        Refresh local models
-                                        <RefreshCcwIcon
-                                            className={`w-3 h-3 ml-2 ${
-                                                spinningProviders["ollama"]
-                                                    ? "animate-spin"
-                                                    : ""
-                                            }`}
-                                        />
-                                    </Button>
-                                </div>
-                            ) : undefined
-                        }
-                    />
                 </CommandList>
             </CommandDialog>
         </>

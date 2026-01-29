@@ -469,36 +469,6 @@ export function useRefreshOpenRouterModels() {
     });
 }
 
-export function useRefreshOllamaModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshOllamaModels"] as const,
-        mutationFn: async () => {
-            await Models.downloadOllamaModels(db);
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
-export function useRefreshLMStudioModels() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationKey: ["refreshLMStudioModels"] as const,
-        mutationFn: async () => {
-            await Models.downloadLMStudioModels(db);
-        },
-        onSuccess: async () => {
-            await queryClient.invalidateQueries(
-                modelConfigQueries.listConfigs(),
-            );
-        },
-    });
-}
-
 export function useRefreshOpenAIModels() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -679,8 +649,6 @@ export function useSetProviderModelsEnabled() {
 
 export function useRefreshModels() {
     const refreshOpenRouterModels = useRefreshOpenRouterModels();
-    const refreshOllamaModels = useRefreshOllamaModels();
-    const refreshLMStudioModels = useRefreshLMStudioModels();
     const refreshOpenAIModels = useRefreshOpenAIModels();
     const refreshAnthropicModels = useRefreshAnthropicModels();
     const refreshGoogleModels = useRefreshGoogleModels();
@@ -690,8 +658,6 @@ export function useRefreshModels() {
         mutationFn: async () => {
             await Promise.all([
                 refreshOpenRouterModels.mutateAsync(),
-                refreshOllamaModels.mutateAsync(),
-                refreshLMStudioModels.mutateAsync(),
                 refreshOpenAIModels.mutateAsync(),
                 refreshAnthropicModels.mutateAsync(),
                 refreshGoogleModels.mutateAsync(),
