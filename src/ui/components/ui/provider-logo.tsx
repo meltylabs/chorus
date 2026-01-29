@@ -61,15 +61,15 @@ export function ProviderLogo({
                     />
                 );
             case "groq":
-                return <img src="/groq.svg" alt="Groq" className="w-4 h-4" />;
+                return <img src="/groq.png" alt="Groq" className="w-4 h-4" />;
             case "mistral":
                 return (
-                    <img src="/mistral.svg" alt="Mistral" className="w-4 h-4" />
+                    <img src="/mistral.png" alt="Mistral" className="w-4 h-4" />
                 );
             case "cerebras":
                 return (
                     <img
-                        src="/cerebras.svg"
+                        src="/cerebras.png"
                         alt="Cerebras"
                         className="w-4 h-4"
                     />
@@ -77,10 +77,22 @@ export function ProviderLogo({
             case "fireworks":
                 return (
                     <img
-                        src="/fireworks.svg"
+                        src="/fireworks.png"
                         alt="Fireworks"
                         className="w-4 h-4"
                     />
+                );
+            case "together":
+                return (
+                    <img
+                        src="/together.png"
+                        alt="Together.ai"
+                        className="w-4 h-4"
+                    />
+                );
+            case "nvidia":
+                return (
+                    <img src="/nvidia.png" alt="Nvidia" className="w-4 h-4" />
                 );
             case "openrouter":
                 if (modelId && modelId in OPENROUTER_CUSTOM_PROVIDER_LOGOS) {

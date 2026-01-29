@@ -329,6 +329,9 @@ importers:
       textarea-caret:
         specifier: ^3.1.0
         version: 3.1.0
+      together-ai:
+        specifier: ^0.33.0
+        version: 0.33.0
       turndown:
         specifier: ^7.2.0
         version: 7.2.2
@@ -11023,6 +11026,10 @@ packages:
   to-regex@3.0.2:
     resolution: {integrity: sha512-FWtleNAtZ/Ki2qtqej2CXTOayOH9bHDQF+Q48VpWyDXjbYxA4Yz8iDB31zXOBUlOHHKidDbqGVrTUvQMPmBGBw==}
     engines: {node: '>=0.10.0'}
+
+  together-ai@0.33.0:
+    resolution: {integrity: sha512-2JdxYwbw+Xw2bW2PHBGqbMTtYsQHoWO9UXvdwIfQkde/swoKp2x/hpxEjtTERzrMP4O5SdDPGxsjfcPXewDJ9A==}
+    hasBin: true
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -26325,6 +26332,8 @@ snapshots:
       extend-shallow: 3.0.2
       regex-not: 1.0.2
       safe-regex: 1.1.0
+
+  together-ai@0.33.0: {}
 
   toidentifier@1.0.1: {}
 

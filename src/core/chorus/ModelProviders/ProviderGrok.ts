@@ -187,11 +187,11 @@ export class ProviderGrok implements IProvider {
         if (isGrok3Mini && modelConfig.reasoningEffort) {
             // Map effort levels to supported values
             // Grok 3 Mini only supports: "low" | "high"
-            const effortMap: Record<string, string> = {
+            const effortMap: Record<string, "low" | "medium" | "high" | "xhigh" | "minimal"> = {
                 low: "low",
-                medium: "high", // medium maps to high
+                medium: "high" as const, // medium maps to high
                 high: "high",
-                xhigh: "high", // xhigh maps to high
+                xhigh: "high" as const, // xhigh maps to high
             };
             streamParams.reasoning_effort =
                 effortMap[modelConfig.reasoningEffort] || "low";

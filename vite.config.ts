@@ -34,6 +34,9 @@ export default defineConfig(async () => ({
     },
     build: {
         target: ["safari15"], // add chrome105 if we add windows support
+        rollupOptions: {
+            external: ["parquetjs"],
+        },
     },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

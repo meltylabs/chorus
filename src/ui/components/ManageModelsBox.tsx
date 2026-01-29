@@ -579,6 +579,8 @@ export function ManageModelsBox({
             "mistral",
             "cerebras",
             "fireworks",
+            "together",
+            "nvidia",
         ] as const;
 
         const directByProvider = Object.fromEntries(
@@ -924,6 +926,30 @@ export function ManageModelsBox({
                             onToggleModelConfig={handleToggleModelConfig}
                             onAddApiKey={handleAddApiKey}
                             groupId="fireworks"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.together.length > 0 && (
+                        <ModelGroup
+                            heading="Together.ai"
+                            models={modelGroups.directByProvider.together}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="together"
+                            showCost={showCost}
+                        />
+                    )}
+                    {modelGroups.directByProvider.nvidia.length > 0 && (
+                        <ModelGroup
+                            heading="Nvidia"
+                            models={modelGroups.directByProvider.nvidia}
+                            checkedModelConfigIds={checkedModelConfigIds}
+                            mode={mode}
+                            onToggleModelConfig={handleToggleModelConfig}
+                            onAddApiKey={handleAddApiKey}
+                            groupId="nvidia"
                             showCost={showCost}
                         />
                     )}

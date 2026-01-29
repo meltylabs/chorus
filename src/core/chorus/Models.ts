@@ -12,6 +12,7 @@ import { ProviderPerplexity } from "./ModelProviders/ProviderPerplexity";
 import { IProvider } from "./ModelProviders/IProvider";
 import Database from "@tauri-apps/plugin-sql";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { ProviderGoogle } from "./ModelProviders/ProviderGoogle";
 import { ProviderGrok } from "./ModelProviders/ProviderGrok";
 import { ProviderVertex } from "./ModelProviders/ProviderVertex";
@@ -21,6 +22,8 @@ import { ProviderGroq } from "./ModelProviders/ProviderGroq";
 import { ProviderMistral } from "./ModelProviders/ProviderMistral";
 import { ProviderCerebras } from "./ModelProviders/ProviderCerebras";
 import { ProviderFireworks } from "./ModelProviders/ProviderFireworks";
+import { ProviderTogether } from "./ModelProviders/ProviderTogether";
+import { ProviderNvidia } from "./ModelProviders/ProviderNvidia";
 import posthog from "posthog-js";
 import { UserTool, UserToolCall, UserToolResult } from "./Toolsets";
 import { Attachment } from "./api/AttachmentsAPI";
@@ -170,6 +173,8 @@ export type ApiKeys = {
     mistral?: string;
     cerebras?: string;
     fireworks?: string;
+    together?: string;
+    nvidia?: string;
 };
 
 export type Model = {
@@ -267,7 +272,9 @@ export type ProviderName =
     | "groq"
     | "mistral"
     | "cerebras"
-    | "fireworks";
+    | "fireworks"
+    | "together"
+    | "nvidia";
 
 /**
  * Returns a human readable label for the provider
@@ -350,6 +357,10 @@ function getProvider(providerName: string): IProvider {
             return new ProviderCerebras();
         case "fireworks":
             return new ProviderFireworks();
+        case "together":
+            return new ProviderTogether();
+        case "nvidia":
+            return new ProviderNvidia();
         default:
             throw new Error(`Unknown provider: ${providerName}`);
     }
@@ -556,6 +567,8 @@ export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
     await downloadMistralModels(db, apiKeys);
     await downloadCerebrasModels(db, apiKeys);
     await downloadFireworksModels(db, apiKeys);
+    await downloadTogetherModels(db, apiKeys);
+    await downloadNvidiaModels(db, apiKeys);
     return 0;
 }
 
@@ -1011,6 +1024,8 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     mistral: "context window",
     cerebras: "context window",
     fireworks: "context window",
+    together: "context window",
+    nvidia: "context window",
 };
 
 /**
@@ -1199,3 +1214,121 @@ export async function downloadFireworksModels(
         console.error("Error downloading Fireworks models:", error);
     }
 }
+
+/**
+ * Downloads models from Together.ai to refresh the database.
+ */
+export async function downloadTogetherModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        if (!apiKeys.together) {
+            return;
+        }
+
+        const response = await tauriFetch("https://api.together.xyz/v1/models", {
+            headers: { Authorization: `Bearer ${apiKeys.together}` },
+        });
+
+        if (!response.ok) return;
+
+        interface TogetherModel {
+            id: string;
+            display_name?: string;
+            type?: string;
+        }
+
+        const models = (await response.json()) as TogetherModel[];
+
+        // Filter for chat models only
+        const chatModels = models.filter(
+            (model) =>
+                model.type === "chat" ||
+                model.id.includes("chat") ||
+                model.id.includes("instruct"),
+        );
+
+        for (const model of chatModels) {
+            // Determine if model supports images based on model name
+            const supportsImages =
+                model.id.includes("vision") ||
+                model.id.includes("llama-3.2-90b") ||
+                model.id.includes("llama-3.2-11b");
+
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `together::${model.id}`,
+                    displayName: model.display_name || model.id,
+                    supportedAttachmentTypes: supportsImages
+                        ? ["text", "image", "webpage"]
+                        : ["text", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.display_name || model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Together.ai models:", error);
+    }
+}
+
+/**
+ * Downloads models from Nvidia NIM to refresh the database.
+ */
+export async function downloadNvidiaModels(
+    db: Database,
+    apiKeys: ApiKeys,
+): Promise<void> {
+    try {
+        if (!apiKeys.nvidia) {
+            return;
+        }
+
+        const response = await tauriFetch(
+            "https://integrate.api.nvidia.com/v1/models",
+            {
+                headers: { Authorization: `Bearer ${apiKeys.nvidia}` },
+            },
+        );
+
+        if (!response.ok) return;
+
+        interface NvidiaModelResponse {
+            data: {
+                id: string;
+                owned_by?: string;
+            }[];
+        }
+
+        const responseData = (await response.json()) as NvidiaModelResponse;
+        const models = responseData.data;
+
+        for (const model of models) {
+            // Determine if model supports images based on model name
+            const supportsImages =
+                model.id.includes("vision") ||
+                model.id.includes("llava") ||
+                model.id.includes("llama-3.2-neva");
+
+            await saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `nvidia::${model.id}`,
+                    displayName: model.id,
+                    supportedAttachmentTypes: supportsImages
+                        ? ["text", "image", "webpage"]
+                        : ["text", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                model.id,
+            );
+        }
+    } catch (error) {
+        console.error("Error downloading Nvidia models:", error);
+    }
+}
+

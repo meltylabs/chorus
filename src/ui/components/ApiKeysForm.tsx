@@ -83,6 +83,18 @@ const providers = [
         placeholder: "fw_...",
         url: "https://fireworks.ai/account/api-keys",
     },
+    {
+        id: "together",
+        name: "Together.ai",
+        placeholder: "...",
+        url: "https://api.together.xyz/settings/api-keys",
+    },
+    {
+        id: "nvidia",
+        name: "Nvidia",
+        placeholder: "nvapi-...",
+        url: "https://build.nvidia.com/explore/discover",
+    },
 ];
 
 export default function ApiKeysForm({
@@ -109,6 +121,8 @@ export default function ApiKeysForm({
     const refreshMistral = ModelsAPI.useRefreshMistralModels();
     const refreshCerebras = ModelsAPI.useRefreshCerebrasModels();
     const refreshFireworks = ModelsAPI.useRefreshFireworksModels();
+    const refreshTogether = ModelsAPI.useRefreshTogetherModels();
+    const refreshNvidia = ModelsAPI.useRefreshNvidiaModels();
     const refreshOpenRouter = ModelsAPI.useRefreshOpenRouterModels();
 
     const toggleModel = ModelsAPI.useToggleModelEnabled();
@@ -141,6 +155,12 @@ export default function ApiKeysForm({
                     break;
                 case "fireworks":
                     await refreshFireworks.mutateAsync();
+                    break;
+                case "together":
+                    await refreshTogether.mutateAsync();
+                    break;
+                case "nvidia":
+                    await refreshNvidia.mutateAsync();
                     break;
                 case "openrouter":
                     await refreshOpenRouter.mutateAsync();

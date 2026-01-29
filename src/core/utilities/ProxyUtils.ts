@@ -19,6 +19,8 @@ const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
     mistral: "mistral",
     cerebras: "cerebras",
     fireworks: "fireworks",
+    together: "together",
+    nvidia: "nvidia",
 };
 
 /**
@@ -35,6 +37,8 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
     mistral: "Mistral",
     cerebras: "Cerebras",
     fireworks: "Fireworks",
+    together: "Together.ai",
+    nvidia: "Nvidia",
 };
 
 /**

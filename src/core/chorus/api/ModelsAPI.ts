@@ -84,6 +84,8 @@ let groqDownloadPromise: Promise<void> | null = null;
 let mistralDownloadPromise: Promise<void> | null = null;
 let cerebrasDownloadPromise: Promise<void> | null = null;
 let fireworksDownloadPromise: Promise<void> | null = null;
+let togetherDownloadPromise: Promise<void> | null = null;
+let nvidiaDownloadPromise: Promise<void> | null = null;
 
 /**
  * Reset download promises for a specific provider so models can be re-fetched.
@@ -116,6 +118,12 @@ export function resetProviderDownloadPromise(provider: string) {
             break;
         case "fireworks":
             fireworksDownloadPromise = null;
+            break;
+        case "together":
+            togetherDownloadPromise = null;
+            break;
+        case "nvidia":
+            nvidiaDownloadPromise = null;
             break;
     }
 }
@@ -260,6 +268,26 @@ export async function fetchModelConfigs() {
                 apiKeys,
             );
             await fireworksDownloadPromise;
+        }
+    }
+
+    // Together.ai
+    if (apiKeys.together) {
+        if (togetherDownloadPromise) {
+            await togetherDownloadPromise;
+        } else {
+            togetherDownloadPromise = Models.downloadTogetherModels(db, apiKeys);
+            await togetherDownloadPromise;
+        }
+    }
+
+    // Nvidia
+    if (apiKeys.nvidia) {
+        if (nvidiaDownloadPromise) {
+            await nvidiaDownloadPromise;
+        } else {
+            nvidiaDownloadPromise = Models.downloadNvidiaModels(db, apiKeys);
+            await nvidiaDownloadPromise;
         }
     }
 
@@ -597,6 +625,38 @@ export function useRefreshFireworksModels() {
     });
 }
 
+export function useRefreshTogetherModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshTogetherModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadTogetherModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshNvidiaModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshNvidiaModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadNvidiaModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
 export function useToggleModelEnabled() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -653,6 +713,12 @@ export function useRefreshModels() {
     const refreshAnthropicModels = useRefreshAnthropicModels();
     const refreshGoogleModels = useRefreshGoogleModels();
     const refreshGrokModels = useRefreshGrokModels();
+    const refreshGroqModels = useRefreshGroqModels();
+    const refreshMistralModels = useRefreshMistralModels();
+    const refreshCerebrasModels = useRefreshCerebrasModels();
+    const refreshFireworksModels = useRefreshFireworksModels();
+    const refreshTogetherModels = useRefreshTogetherModels();
+    const refreshNvidiaModels = useRefreshNvidiaModels();
     return useMutation({
         mutationKey: ["refreshAllModels"] as const,
         mutationFn: async () => {
@@ -662,6 +728,12 @@ export function useRefreshModels() {
                 refreshAnthropicModels.mutateAsync(),
                 refreshGoogleModels.mutateAsync(),
                 refreshGrokModels.mutateAsync(),
+                refreshGroqModels.mutateAsync(),
+                refreshMistralModels.mutateAsync(),
+                refreshCerebrasModels.mutateAsync(),
+                refreshFireworksModels.mutateAsync(),
+                refreshTogetherModels.mutateAsync(),
+                refreshNvidiaModels.mutateAsync(),
             ]);
         },
     });
