@@ -434,15 +434,41 @@ export async function saveModelAndDefaultConfig(
 
     // Create the default model_config row if missing; on refresh, only update the display name
     // and linkage, preserving user-controlled fields (system_prompt, thinking params, etc).
-    await db.execute(
-        `INSERT INTO model_configs (id, display_name, author, model_id, system_prompt)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-             display_name = excluded.display_name,
-             author = excluded.author,
-             model_id = excluded.model_id`,
-        [model.id, modelConfigDisplayName, "system", model.id, ""],
-    );
+    // For Gemini 3 models, set default thinking_level = 'HIGH' and show_thoughts = 1
+    const modelName = model.id.split("::").slice(1).join("::");
+    const isGemini3 = modelName.includes("gemini-3");
+
+    if (isGemini3) {
+        await db.execute(
+            `INSERT INTO model_configs (id, display_name, author, model_id, system_prompt, thinking_level, show_thoughts)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 display_name = excluded.display_name,
+                 author = excluded.author,
+                 model_id = excluded.model_id,
+                 thinking_level = COALESCE(model_configs.thinking_level, excluded.thinking_level),
+                 show_thoughts = COALESCE(model_configs.show_thoughts, excluded.show_thoughts)`,
+            [
+                model.id,
+                modelConfigDisplayName,
+                "system",
+                model.id,
+                "",
+                "HIGH",
+                1,
+            ],
+        );
+    } else {
+        await db.execute(
+            `INSERT INTO model_configs (id, display_name, author, model_id, system_prompt)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 display_name = excluded.display_name,
+                 author = excluded.author,
+                 model_id = excluded.model_id`,
+            [model.id, modelConfigDisplayName, "system", model.id, ""],
+        );
+    }
 }
 
 /**
@@ -454,14 +480,11 @@ export async function deleteProviderModels(
     provider: string,
 ): Promise<void> {
     // Delete from model_configs first (child table)
-    await db.execute(
-        `DELETE FROM model_configs WHERE model_id LIKE ?`,
-        [`${provider}::%`],
-    );
-    // Then delete from models (parent table)
-    await db.execute(`DELETE FROM models WHERE id LIKE ?`, [
+    await db.execute(`DELETE FROM model_configs WHERE model_id LIKE ?`, [
         `${provider}::%`,
     ]);
+    // Then delete from models (parent table)
+    await db.execute(`DELETE FROM models WHERE id LIKE ?`, [`${provider}::%`]);
 }
 
 function hasVertexCredentials(vertex: VertexAISettings): boolean {
@@ -1227,9 +1250,12 @@ export async function downloadTogetherModels(
             return;
         }
 
-        const response = await tauriFetch("https://api.together.xyz/v1/models", {
-            headers: { Authorization: `Bearer ${apiKeys.together}` },
-        });
+        const response = await tauriFetch(
+            "https://api.together.xyz/v1/models",
+            {
+                headers: { Authorization: `Bearer ${apiKeys.together}` },
+            },
+        );
 
         if (!response.ok) return;
 
@@ -1331,4 +1357,3 @@ export async function downloadNvidiaModels(
         console.error("Error downloading Nvidia models:", error);
     }
 }
-

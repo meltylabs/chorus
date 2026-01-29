@@ -35,6 +35,10 @@ export function ThinkingParamsButton({
     const updateThinkingParams = ModelsAPI.useUpdateThinkingParams();
     const [open, setOpen] = useState(false);
 
+    // Debug
+    console.log("[ThinkingParamsButton] modelConfig:", modelConfig);
+    console.log("[ThinkingParamsButton] modelId:", modelConfig.modelId);
+
     // Local state to avoid stale closure issues
     // These track the current database values
     const [localBudgetTokens, setLocalBudgetTokens] = useState<string>(() => {
@@ -107,6 +111,12 @@ export function ThinkingParamsButton({
         providerName === "anthropic" || modelName?.includes("gemini-2.5");
     const showThinkingLevel = modelName?.includes("gemini-3");
 
+    // Debug
+    console.log("[ThinkingParamsButton] providerName:", providerName);
+    console.log("[ThinkingParamsButton] modelName:", modelName);
+    console.log("[ThinkingParamsButton] showThinkingLevel:", showThinkingLevel);
+    console.log("[ThinkingParamsButton] showBudgetTokens:", showBudgetTokens);
+
     const openaiSupportsShowThoughts =
         providerName === "openai" &&
         (modelName?.startsWith("gpt-5") || modelName?.startsWith("o"));
@@ -140,8 +150,10 @@ export function ThinkingParamsButton({
 
     // Each handler ONLY updates its own field - avoids stale closure issues
     const handleReasoningEffortChange = async (value: string) => {
+        // For reasoning models, use "medium" as the default if not explicitly set
+        // Only set to null if explicitly disabled
         const newEffort =
-            value === "default"
+            value === "none"
                 ? null
                 : (value as "low" | "medium" | "high" | "xhigh");
 
@@ -156,7 +168,9 @@ export function ThinkingParamsButton({
     };
 
     const handleThinkingLevelChange = async (value: string) => {
-        const newLevel = value === "default" ? null : (value as "LOW" | "HIGH");
+        // For Gemini 3, "default" should map to "HIGH" (the actual default)
+        // Only set to null if explicitly disabled
+        const newLevel = value === "none" ? null : (value as "LOW" | "HIGH");
 
         try {
             await updateThinkingParams.mutateAsync({
@@ -301,15 +315,15 @@ export function ThinkingParamsButton({
                                 )}
                             </Label>
                             <Select
-                                value={modelConfig.reasoningEffort || "default"}
+                                value={modelConfig.reasoningEffort || "medium"}
                                 onValueChange={handleReasoningEffortChange}
                             >
                                 <SelectTrigger id="reasoning-effort">
-                                    <SelectValue placeholder="Default (medium)" />
+                                    <SelectValue placeholder="Medium" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="default">
-                                        Default (medium)
+                                    <SelectItem value="none">
+                                        None (disable reasoning)
                                     </SelectItem>
                                     <SelectItem value="low">
                                         Low - Fast & economical
@@ -383,15 +397,15 @@ export function ThinkingParamsButton({
                                 </span>
                             </Label>
                             <Select
-                                value={modelConfig.thinkingLevel || "default"}
+                                value={modelConfig.thinkingLevel || "HIGH"}
                                 onValueChange={handleThinkingLevelChange}
                             >
                                 <SelectTrigger id="thinking-level">
-                                    <SelectValue placeholder="Default (HIGH)" />
+                                    <SelectValue placeholder="HIGH" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="default">
-                                        Default (HIGH)
+                                    <SelectItem value="none">
+                                        None (disable thinking)
                                     </SelectItem>
                                     <SelectItem value="LOW">
                                         LOW - Simple tasks, faster

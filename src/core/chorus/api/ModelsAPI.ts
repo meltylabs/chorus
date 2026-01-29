@@ -276,7 +276,10 @@ export async function fetchModelConfigs() {
         if (togetherDownloadPromise) {
             await togetherDownloadPromise;
         } else {
-            togetherDownloadPromise = Models.downloadTogetherModels(db, apiKeys);
+            togetherDownloadPromise = Models.downloadTogetherModels(
+                db,
+                apiKeys,
+            );
             await togetherDownloadPromise;
         }
     }
