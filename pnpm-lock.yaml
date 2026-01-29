@@ -329,6 +329,9 @@ importers:
       textarea-caret:
         specifier: ^3.1.0
         version: 3.1.0
+      together-ai:
+        specifier: ^0.8.0
+        version: 0.8.0(encoding@0.1.13)
       turndown:
         specifier: ^7.2.0
         version: 7.2.2
@@ -11023,6 +11026,9 @@ packages:
   to-regex@3.0.2:
     resolution: {integrity: sha512-FWtleNAtZ/Ki2qtqej2CXTOayOH9bHDQF+Q48VpWyDXjbYxA4Yz8iDB31zXOBUlOHHKidDbqGVrTUvQMPmBGBw==}
     engines: {node: '>=0.10.0'}
+
+  together-ai@0.8.0:
+    resolution: {integrity: sha512-w4/zlmoKM8QNOsAMYa3eKdQiWg/0w4mnRc5L7rZvXvymIQI7CRVlv+OE/YTdiCnez1TNl/Zz6UmogBXkrM2LxQ==}
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -26325,6 +26331,18 @@ snapshots:
       extend-shallow: 3.0.2
       regex-not: 1.0.2
       safe-regex: 1.1.0
+
+  together-ai@0.8.0(encoding@0.1.13):
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
 
   toidentifier@1.0.1: {}
 

@@ -597,6 +597,38 @@ export function useRefreshFireworksModels() {
     });
 }
 
+export function useRefreshTogetherModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshTogetherModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadTogetherModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
+export function useRefreshNvidiaModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshNvidiaModels"] as const,
+        mutationFn: async () => {
+            const apiKeys = await getApiKeys();
+            await Models.downloadNvidiaModels(db, apiKeys);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
 export function useToggleModelEnabled() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -653,6 +685,12 @@ export function useRefreshModels() {
     const refreshAnthropicModels = useRefreshAnthropicModels();
     const refreshGoogleModels = useRefreshGoogleModels();
     const refreshGrokModels = useRefreshGrokModels();
+    const refreshGroqModels = useRefreshGroqModels();
+    const refreshMistralModels = useRefreshMistralModels();
+    const refreshCerebrasModels = useRefreshCerebrasModels();
+    const refreshFireworksModels = useRefreshFireworksModels();
+    const refreshTogetherModels = useRefreshTogetherModels();
+    const refreshNvidiaModels = useRefreshNvidiaModels();
     return useMutation({
         mutationKey: ["refreshAllModels"] as const,
         mutationFn: async () => {
@@ -662,6 +700,12 @@ export function useRefreshModels() {
                 refreshAnthropicModels.mutateAsync(),
                 refreshGoogleModels.mutateAsync(),
                 refreshGrokModels.mutateAsync(),
+                refreshGroqModels.mutateAsync(),
+                refreshMistralModels.mutateAsync(),
+                refreshCerebrasModels.mutateAsync(),
+                refreshFireworksModels.mutateAsync(),
+                refreshTogetherModels.mutateAsync(),
+                refreshNvidiaModels.mutateAsync(),
             ]);
         },
     });
