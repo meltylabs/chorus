@@ -176,7 +176,6 @@ export class ProviderGrok implements IProvider {
         const isGrok3Mini = modelName.includes("grok-3-mini");
 
         const streamParams: OpenAI.ChatCompletionCreateParamsStreaming & {
-            include_reasoning?: boolean;
             reasoning_effort?: string;
         } = {
             model: modelName,
@@ -185,46 +184,17 @@ export class ProviderGrok implements IProvider {
         };
 
         // Only Grok 3 Mini supports reasoning effort control
-        if (isGrok3Mini) {
-            // Always include reasoning traces for Grok 3 Mini
-            streamParams.include_reasoning = true;
-
+        if (isGrok3Mini && modelConfig.reasoningEffort) {
             // Map effort levels to supported values
             // Grok 3 Mini only supports: "low" | "high"
-            if (modelConfig.reasoningEffort) {
-                const effortMap: Record<string, string> = {
-                    low: "low",
-                    medium: "high", // medium maps to high
-                    high: "high",
-                    xhigh: "high", // xhigh maps to high
-                };
-                streamParams.reasoning_effort =
-                    effortMap[modelConfig.reasoningEffort] || "low";
-            }
-        }
-
-        // Debug: Log reasoning parameters
-        console.log(`[ProviderGrok] Model: ${modelName}`);
-        console.log(`[ProviderGrok] isGrok3Mini: ${isGrok3Mini}`);
-        console.log(
-            `[ProviderGrok] modelConfig.reasoningEffort: ${modelConfig.reasoningEffort}`,
-        );
-        console.log(
-            `[ProviderGrok] streamParams.include_reasoning:`,
-            streamParams.include_reasoning,
-        );
-        console.log(
-            `[ProviderGrok] streamParams.reasoning_effort:`,
-            streamParams.reasoning_effort,
-        );
-        if (isGrok3Mini && modelConfig.reasoningEffort) {
-            const originalEffort = modelConfig.reasoningEffort;
-            const mappedEffort = streamParams.reasoning_effort;
-            if (originalEffort !== mappedEffort) {
-                console.log(
-                    `[ProviderGrok] Note: Grok 3 Mini only supports "low" and "high". Mapped "${originalEffort}" to "${mappedEffort}".`,
-                );
-            }
+            const effortMap: Record<string, string> = {
+                low: "low",
+                medium: "high", // medium maps to high
+                high: "high",
+                xhigh: "high", // xhigh maps to high
+            };
+            streamParams.reasoning_effort =
+                effortMap[modelConfig.reasoningEffort] || "low";
         }
 
         try {
