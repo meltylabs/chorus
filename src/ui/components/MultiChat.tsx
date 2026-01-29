@@ -1486,6 +1486,7 @@ function ToolsBlockView({
 }) {
     const { chatId } = useParams();
     const { elementRef, shouldShowScrollbar } = useElementScrollDetection();
+    const { state: sidebarState } = useSidebar();
 
     const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
     const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
@@ -1514,24 +1515,31 @@ function ToolsBlockView({
             ${shouldShowScrollbar ? "is-scrolling" : ""}
             ${!isQuickChatWindow ? "px-10" : ""}`}
         >
-            {toolsBlock.chatMessages.map((message, _index) => (
-                <div
-                    key={message.id}
-                    className={
-                        isQuickChatWindow
-                            ? "w-full max-w-prose"
-                            : `w-full flex-1 min-w-[450px] max-w-[550px]`
-                    }
-                >
-                    <ToolsMessageView
-                        message={message}
-                        // shortcutNumber={isLastRow ? index + 1 : undefined}
-                        isLastRow={isLastRow}
-                        isQuickChatWindow={isQuickChatWindow}
-                        isOnlyMessage={toolsBlock.chatMessages.length === 1}
-                    />
-                </div>
-            ))}
+            {toolsBlock.chatMessages.map((message, _index) => {
+                // Calculate width based on number of models and sidebar state
+                const modelCount = toolsBlock.chatMessages.length;
+                const isSidebarCollapsed = sidebarState === "collapsed";
+
+                const widthClass = isQuickChatWindow
+                    ? "w-full max-w-prose"
+                    : modelCount === 1
+                      ? isSidebarCollapsed
+                        ? "w-full flex-1 max-w-6xl" // Sidebar collapsed: extra wide
+                        : "w-full flex-1 max-w-5xl" // Sidebar open: very wide
+                      : "w-full flex-1 min-w-[450px] max-w-[550px]"; // Multiple models: current behavior
+
+                return (
+                    <div key={message.id} className={widthClass}>
+                        <ToolsMessageView
+                            message={message}
+                            // shortcutNumber={isLastRow ? index + 1 : undefined}
+                            isLastRow={isLastRow}
+                            isQuickChatWindow={isQuickChatWindow}
+                            isOnlyMessage={toolsBlock.chatMessages.length === 1}
+                        />
+                    </div>
+                );
+            })}
             {isLastRow && !isQuickChatWindow && (
                 <div>
                     <button
