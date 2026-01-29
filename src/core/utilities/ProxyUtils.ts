@@ -63,11 +63,6 @@ export function canProceedWithProvider(
 ): CanProceedResult {
     const apiKeyField = PROVIDER_TO_API_KEY[providerKey];
 
-    // Local models (ollama, lmstudio) don't require API keys
-    if (providerKey === "ollama" || providerKey === "lmstudio") {
-        return { canProceed: true };
-    }
-
     // For providers that need API keys, check if one is configured
     if (!apiKeyField) {
         return {

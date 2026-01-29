@@ -13,9 +13,6 @@ import { IProvider } from "./ModelProviders/IProvider";
 import Database from "@tauri-apps/plugin-sql";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { ProviderGoogle } from "./ModelProviders/ProviderGoogle";
-import { ollamaClient } from "./OllamaClient";
-import { ProviderOllama } from "./ModelProviders/ProviderOllama";
-import { ProviderLMStudio } from "./ModelProviders/ProviderLMStudio";
 import { ProviderGrok } from "./ModelProviders/ProviderGrok";
 import { ProviderVertex } from "./ModelProviders/ProviderVertex";
 import { ProviderCustomOpenAI } from "./ModelProviders/ProviderCustomOpenAI";
@@ -262,8 +259,6 @@ export type ProviderName =
     | "google"
     | "perplexity"
     | "openrouter"
-    | "ollama"
-    | "lmstudio"
     | "grok"
     | "vertex"
     | "custom_openai"
@@ -339,10 +334,6 @@ function getProvider(providerName: string): IProvider {
             return new ProviderOpenRouter();
         case "perplexity":
             return new ProviderPerplexity();
-        case "ollama":
-            return new ProviderOllama();
-        case "lmstudio":
-            return new ProviderLMStudio();
         case "grok":
             return new ProviderGrok();
         case "vertex":
@@ -394,12 +385,10 @@ export async function saveModelAndDefaultConfig(
     },
 ): Promise<void> {
     // For remote providers, preserve user-controlled enable/disable state across refreshes.
-    // For local/curated providers (Ollama/LM Studio/Vertex/Custom Providers), treat refresh as
+    // For local/curated providers (Vertex/Custom Providers), treat refresh as
     // authoritative and overwrite is_enabled.
     const providerId = model.id.split("::")[0] ?? "";
     const shouldOverwriteIsEnabled =
-        providerId === "ollama" ||
-        providerId === "lmstudio" ||
         providerId === "vertex" ||
         providerId === "custom_openai" ||
         providerId === "custom_anthropic";
@@ -540,8 +529,6 @@ export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
     apiKeys: ApiKeys,
 ): Promise<number> {
     await downloadOpenRouterModels(db);
-    await downloadOllamaModels(db);
-    await downloadLMStudioModels(db);
     await downloadOpenAIModels(db, apiKeys);
     await downloadAnthropicModels(db, apiKeys);
     await downloadGoogleModels(db, apiKeys);
@@ -618,82 +605,6 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
     );
 
     return openRouterModels.length;
-}
-
-/**
- * Downloads models from Ollama to refresh the database.
- */
-export async function downloadOllamaModels(db: Database): Promise<void> {
-    // first, disable all ollama models
-    await db.execute(
-        "UPDATE models SET is_enabled = 0 WHERE id LIKE 'ollama::%'",
-    );
-
-    // health check
-    const health = await ollamaClient.isHealthy();
-    if (!health) {
-        return;
-    }
-
-    const { models } = await ollamaClient.listModels();
-
-    // Then add/update models from Ollama
-    for (const model of models) {
-        await saveModelAndDefaultConfig(
-            db,
-            {
-                id: `ollama::${model.name}`,
-                displayName: `${model.name} (Ollama)`,
-                supportedAttachmentTypes: ["text", "webpage"], // Ollama models currently only support text and webpage
-                isEnabled: true,
-                isInternal: false,
-            },
-            `${model.name} (Ollama)`,
-        );
-    }
-}
-
-/**
- * Downloads models from LM Studio to refresh the database.
- */
-export async function downloadLMStudioModels(db: Database): Promise<void> {
-    try {
-        // Check if LM Studio is accessible
-        // First, disable all existing LM Studio models
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'lmstudio::%'",
-        );
-
-        const response = await fetch("http://localhost:1234/v1/models");
-        if (!response.ok) {
-            return;
-        }
-
-        const { data: models } = (await response.json()) as {
-            data: { id: string }[];
-        };
-
-        // Then add/update models from LM Studio
-        for (const model of models) {
-            await saveModelAndDefaultConfig(
-                db,
-                {
-                    id: `lmstudio::${model.id}`,
-                    displayName: `${model.id} (LM Studio)`,
-                    supportedAttachmentTypes: ["text", "webpage"], // LM Studio models currently support text and webpage
-                    isEnabled: true,
-                    isInternal: false,
-                },
-                `${model.id} (LM Studio)`,
-            );
-        }
-    } catch (error) {
-        // If there's an error (e.g., LM Studio is not running), disable all LM Studio models
-        await db.execute(
-            "UPDATE models SET is_enabled = 0 WHERE id LIKE 'lmstudio::%'",
-        );
-        throw error;
-    }
 }
 
 /**
@@ -1083,9 +994,7 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     grok: "maximum prompt length",
     openrouter: "context length",
     meta: "context window", // best guess
-    lmstudio: "context window", // best guess
     perplexity: "context window", // best guess
-    ollama: "context window", // best guess
     vertex: "context window", // best guess
     custom_openai: "context window", // best guess
     custom_anthropic: "prompt is too long", // best guess

@@ -56,11 +56,6 @@ export function QuickChatModelSelector({
             // Get the provider for this model
             const provider = getProviderName(model.modelId);
 
-            // Local models (ollama, lmstudio) don't require API keys
-            if (provider === "ollama" || provider === "lmstudio") {
-                return true;
-            }
-
             // If user has API key for this provider, allow it
             if (
                 apiKeys &&
