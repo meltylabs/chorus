@@ -800,25 +800,18 @@ export async function downloadAnthropicModels(
             );
 
             // If the key is invalid, disable Anthropic models so they can't be selected.
-            // For transient failures, keep (and re-enable) existing models so the user
-            // can still use pre-seeded Claude configs.
+            // For transient failures, preserve existing models' is_enabled state (user preference).
             if (response.status === 401 || response.status === 403) {
                 await db.execute(
                     "UPDATE models SET is_enabled = 0 WHERE id LIKE 'anthropic::%'",
                 );
-            } else {
-                await db.execute(
-                    "UPDATE models SET is_enabled = 1 WHERE id LIKE 'anthropic::%'",
-                );
             }
+            // For other failures, do nothing - preserve user's enable/disable preferences
             return;
         }
 
-        // Keep existing pre-seeded Claude configs usable even if the Models API
-        // returns a different set of canonical IDs than our aliases.
-        await db.execute(
-            "UPDATE models SET is_enabled = 1 WHERE id LIKE 'anthropic::%'",
-        );
+        // Don't overwrite user preferences for enabled/disabled models
+        // New models will be enabled via saveModelAndDefaultConfig
 
         const { data: models } = (await response.json()) as {
             data: {
@@ -853,11 +846,8 @@ export async function downloadAnthropicModels(
         }
     } catch (error) {
         console.error("Error downloading Anthropic models:", error);
-        // Don't strand the user without Claude models if the network request fails.
-        // This is especially important for first-time key setup flows.
-        await db.execute(
-            "UPDATE models SET is_enabled = 1 WHERE id LIKE 'anthropic::%'",
-        );
+        // Preserve existing models' is_enabled state (user preference)
+        // New models will be enabled when they're successfully fetched
     }
 }
 
