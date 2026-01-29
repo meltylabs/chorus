@@ -18,19 +18,31 @@ Key features:
 
 Most functionality lives in this repo. A separate Elixir backend at app.chorus.sh handles accounts, billing, and request proxying.
 
+## Prerequisites
+
+Before development, ensure you have:
+
+-   Node.js >= 22.0.0
+-   pnpm (`brew install pnpm`)
+-   Rust and Cargo (`rustc --version` and `cargo --version` should work)
+-   Git LFS (`brew install git-lfs`)
+-   imagemagick (optional, for icon processing)
+
 ## Development Commands
 
 **Initial setup:**
 
 ```bash
+git lfs install --force  # Initialize Git LFS
+git lfs pull             # Pull LFS objects
 pnpm run setup           # Install dependencies and initialize dev environment
 ```
 
 **Development:**
 
 ```bash
-pnpm run dev             # Start development instance (uses repo directory name)
-pnpm run workspace [name] # Run specific isolated instance with separate data directory
+pnpm run dev                    # Start development instance (uses repo directory name)
+./script/dev-instance.sh [name] # Run specific isolated instance with separate data directory
 ```
 
 **Building:**
@@ -43,6 +55,7 @@ pnpm run build           # Compile TypeScript and build with Vite
 
 ```bash
 pnpm run test            # Run tests with Vitest
+# Test files should be named *.test.ts(x) or placed under src/tests/
 ```
 
 **Linting and formatting:**
@@ -79,8 +92,16 @@ The `dev-instance.sh` script lets you run multiple isolated Chorus instances sim
 -   Each gets a unique port (1420-1520) based on instance name hash
 -   Instance name appears in the DEV MODE indicator in the sidebar
 -   Data persists between runs
+-   Can set custom icons per instance in the data directory's `icons/` folder
 
 This is useful for working on multiple branches or testing without affecting your main development environment.
+
+## Local Data Storage
+
+-   Development data: `~/Library/Application Support/sh.chorus.app.dev.<instance>/`
+-   Contains: `auth.dat`, `chats.db`, and other app data
+-   NEVER commit these files to git
+-   Use `pnpm run delete-db` to delete the database for the current instance
 
 ## Architecture
 
@@ -91,19 +112,37 @@ src/
 ├── ui/                      # React frontend
 │   ├── components/         # UI components
 │   ├── hooks/              # Custom React hooks
-│   └── providers/          # Context providers
+│   ├── providers/          # Context providers
+│   └── themes/             # Theme configuration
 ├── core/
-│   └── chorus/             # Core business logic
-│       ├── api/            # TanStack Query queries and mutations
-│       ├── ModelProviders/ # Provider implementations (Anthropic, OpenAI, etc.)
-│       ├── toolsets/       # MCP toolset implementations
-│       └── DB.ts           # Database connection
+│   ├── chorus/             # Core business logic
+│   │   ├── api/            # TanStack Query queries and mutations
+│   │   ├── ModelProviders/ # Provider implementations (Anthropic, OpenAI, etc.)
+│   │   ├── toolsets/       # MCP toolset implementations
+│   │   └── DB.ts           # Database connection
+│   ├── infra/              # Infrastructure utilities
+│   └── utilities/          # Shared utilities
+├── types/                  # Shared TypeScript types
+└── polyfills.ts            # Browser API polyfills for Tauri
 src-tauri/
 └── src/                    # Rust backend
     ├── command.rs          # Tauri commands exposed to frontend
     ├── migrations.rs       # Database migrations
-    └── window.rs           # Window management
+    ├── window.rs           # Window management
+    ├── main.rs             # Application entry point
+    └── lib.rs              # Tauri plugin configuration
+script/                     # Development and release scripts
 ```
+
+### Routing
+
+The app uses React Router with these routes:
+
+-   `/` - Home view
+-   `/chat/:chatId` - Chat interface (MultiChat component)
+-   `/projects/:projectId` - Project view with chat list
+-   `/new-prompt` - New prompt creation
+-   `/prompts` - List of saved prompts
 
 ### Data Flow
 
@@ -147,6 +186,27 @@ src-tauri/
 -   Zustand for UI state (DialogStore, etc.)
 -   React Context for app-wide state (AppProvider, SidebarProvider)
 
+**Analytics:**
+
+-   PostHog integration for analytics and feature flags
+-   Configured in `src/ui/main.tsx` with PostHogProvider
+
+**Tauri Plugins:**
+
+The Rust backend uses these Tauri plugins (see `src-tauri/src/lib.rs`):
+
+-   `tauri-plugin-sql` - SQLite database with migrations
+-   `tauri-plugin-http` - HTTP client for API requests
+-   `tauri-plugin-fs` - File system access
+-   `tauri-plugin-dialog` - Native dialogs
+-   `tauri-plugin-shell` - Shell command execution
+-   `tauri-plugin-notification` - System notifications
+-   `tauri-plugin-clipboard-manager` - Clipboard operations
+-   `tauri-plugin-deep-link` - Deep link handling
+-   `tauri-plugin-updater` - Auto-update functionality
+-   `tauri-plugin-store` - Key-value storage
+-   `tauri-plugin-macos-permissions` - macOS permission management
+
 ## Important Files and Directories
 
 **Entry Points:**
@@ -173,6 +233,15 @@ src-tauri/
 
 -   `src-tauri/src/migrations.rs` - Database schema migrations
 -   `SQL_SCHEMA.md` - Auto-generated schema documentation (DO NOT EDIT MANUALLY)
+-   `src/core/chorus/DB.ts` - Database connection and query utilities
+
+**Scripts:**
+
+-   `script/setup-instance.sh` - Set up isolated development instance
+-   `script/dev-instance.sh` - Run development instance with custom configuration
+-   `script/delete-db.sh` - Delete local development database
+-   `script/validate.sh` - Run linting and formatting checks
+-   `script/interactive_release.sh` - Interactive release workflow
 
 ## Data Model Changes
 
@@ -251,6 +320,15 @@ When modifying the data model:
 
 -   ESLint enforces that all promises must be handled (@typescript-eslint/no-floating-promises)
 
+**Key Types:**
+
+-   `Message` - Represents a single AI or user message in `ChatState.ts`
+-   `MessageSet` - Group of messages at the same level (user prompt + AI responses)
+-   `IProvider` - Interface all model providers must implement (in `ModelProviders/IProvider.ts`)
+-   `StreamResponseParams` - Parameters for streaming responses from providers
+-   `Toolset` - Interface for MCP toolset implementations
+-   `LLMMessage` - Standard message format for LLM conversations
+
 **Restricted Features - Require Explicit Permission:**
 Before using any of these, you MUST ask the user for permission:
 
@@ -284,6 +362,21 @@ You (Claude) do NOT have access to the running app. You MUST rely on the user to
 After fixing a bug, pause and ask the user to verify the fix before continuing.
 
 When you complete a draft implementation, ask the user to test it early and often.
+
+**Test Organization:**
+
+-   Test files should be named `*.test.ts` or `*.test.tsx`
+-   Can also be placed under `src/tests/` directory
+-   Use Vitest for all JavaScript/TypeScript tests
+-   Keep test snapshots committed to git
+
+**What to Test:**
+
+-   Core business logic in `src/core/chorus/`
+-   API layer mutations and queries
+-   Model provider implementations
+-   Utility functions
+-   Complex UI component logic
 
 ## Role and Workflow
 
