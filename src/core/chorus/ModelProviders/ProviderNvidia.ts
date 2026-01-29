@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import {
     StreamResponseParams,
     LLMMessage,
@@ -49,6 +50,7 @@ export class ProviderNvidia implements IProvider {
         const client = new OpenAI({
             apiKey: apiKeys.nvidia,
             baseURL: "https://integrate.api.nvidia.com/v1",
+            fetch: tauriFetch,
             dangerouslyAllowBrowser: true,
         });
 

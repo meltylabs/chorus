@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import {
     StreamResponseParams,
     LLMMessage,
@@ -205,6 +206,7 @@ export class ProviderOpenAI implements IProvider {
         const client = new OpenAI({
             apiKey: apiKeys.openai,
             baseURL: customBaseUrl,
+            fetch: tauriFetch,
             dangerouslyAllowBrowser: true,
             defaultHeaders: {
                 ...(additionalHeaders ?? {}),
