@@ -17,9 +17,9 @@ import { useCallback, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { hasApiKey } from "@core/utilities/ProxyUtils";
 import { useMemo } from "react";
-import { ALLOWED_MODEL_IDS_FOR_QUICK_CHAT } from "@ui/lib/models";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
+import { useSettings } from "./hooks/useSettings";
 
 interface ModelSelectorProps {
     onModelSelect: (modelId: string) => void;
@@ -35,6 +35,7 @@ export function QuickChatModelSelector({
     const posthog = usePostHog();
     const [isOpen, setIsOpen] = useState(false);
     const { data: apiKeys } = AppMetadataAPI.useApiKeys();
+    const settings = useSettings();
 
     const onChangeOpen = useCallback(
         (newOpen: boolean) => {
@@ -53,24 +54,46 @@ export function QuickChatModelSelector({
     // Determine if a model should be allowed based on whether user has the API key
     const isModelAllowed = useCallback(
         (model: ModelConfig) => {
-            // Get the provider for this model
             const provider = getProviderName(model.modelId);
 
-            // If user has API key for this provider, allow it
-            if (
-                apiKeys &&
-                provider &&
-                hasApiKey(
-                    provider.toLowerCase() as keyof typeof apiKeys,
-                    apiKeys,
-                )
-            ) {
-                return true;
+            // Vertex models require Vertex AI settings (credentials).
+            if (provider === "vertex") {
+                const vertex = settings?.vertexAI;
+                if (!vertex) return false;
+                return Boolean(
+                    vertex.projectId.trim() &&
+                        vertex.location.trim() &&
+                        vertex.serviceAccountClientEmail.trim() &&
+                        vertex.serviceAccountPrivateKey.trim(),
+                );
             }
 
-            return false;
+            // Custom provider models require the custom provider to exist and have credentials.
+            if (
+                provider === "custom_openai" ||
+                provider === "custom_anthropic"
+            ) {
+                const providerId = model.modelId.split("::")[1] || "";
+                const kind =
+                    provider === "custom_anthropic" ? "anthropic" : "openai";
+                const customProvider = (settings?.customProviders ?? []).find(
+                    (p) => p.id === providerId && p.kind === kind,
+                );
+                if (!customProvider) return false;
+                return Boolean(
+                    customProvider.apiBaseUrl.trim() &&
+                        customProvider.apiKey.trim(),
+                );
+            }
+
+            if (!apiKeys) return false;
+
+            return hasApiKey(
+                provider.toLowerCase() as keyof typeof apiKeys,
+                apiKeys,
+            );
         },
-        [apiKeys],
+        [apiKeys, settings],
     );
 
     const quickChatSelectableModelConfigs = useMemo(
@@ -78,9 +101,8 @@ export function QuickChatModelSelector({
             modelConfigsQuery?.data?.filter(
                 (config) =>
                     config.isEnabled &&
-                    !config.id.includes("chorus") &&
-                    !config.displayName.includes("Deprecated") &&
-                    ALLOWED_MODEL_IDS_FOR_QUICK_CHAT.includes(config.id) &&
+                    !config.isInternal &&
+                    !config.isDeprecated &&
                     isModelAllowed(config),
             ) ?? [],
         [modelConfigsQuery, isModelAllowed],
@@ -141,10 +163,6 @@ export function QuickChatModelSelector({
                             <CommandItem
                                 key={config.id}
                                 onSelect={() => {
-                                    console.log(
-                                        "CommandItem onSelect called",
-                                        config.id,
-                                    );
                                     handleModelSelect(config.id);
                                     onChangeOpen(false); // Close after selection
                                 }}

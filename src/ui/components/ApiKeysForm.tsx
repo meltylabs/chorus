@@ -16,6 +16,7 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@ui/lib/utils";
 import { ScrollArea } from "./ui/scroll-area";
+import { toast } from "sonner";
 
 interface ApiKeysFormProps {
     apiKeys: Record<string, string>;
@@ -167,6 +168,14 @@ export default function ApiKeysForm({
                     break;
             }
             await queryClient.invalidateQueries({ queryKey: ["models"] });
+        } catch (error) {
+            console.error("Failed to fetch models:", error);
+            const providerName =
+                providers.find((p) => p.id === providerId)?.name ?? providerId;
+            toast.error(`Failed to fetch ${providerName} models`, {
+                description:
+                    error instanceof Error ? error.message : String(error),
+            });
         } finally {
             setFetching(false);
         }

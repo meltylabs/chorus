@@ -597,7 +597,7 @@ export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
  * Downloads models from OpenRouter to refresh the database.
  */
 export async function downloadOpenRouterModels(db: Database): Promise<number> {
-    const response = await fetch("https://openrouter.ai/api/v1/models");
+    const response = await tauriFetch("https://openrouter.ai/api/v1/models");
     if (!response.ok) {
         console.error("Failed to fetch OpenRouter models");
         return 0;
@@ -676,7 +676,7 @@ export async function downloadOpenAIModels(
             return;
         }
 
-        const response = await fetch("https://api.openai.com/v1/models", {
+        const response = await tauriFetch("https://api.openai.com/v1/models", {
             headers: {
                 Authorization: `Bearer ${apiKeys.openai}`,
             },
@@ -747,12 +747,16 @@ export async function downloadAnthropicModels(
             return;
         }
 
-        const response = await fetch("https://api.anthropic.com/v1/models", {
-            headers: {
-                "anthropic-version": "2023-06-01",
-                "x-api-key": apiKeys.anthropic,
+        const response = await tauriFetch(
+            "https://api.anthropic.com/v1/models",
+            {
+                headers: {
+                    "anthropic-version": "2023-06-01",
+                    "x-api-key": apiKeys.anthropic,
+                    "anthropic-dangerous-direct-browser-access": "true",
+                },
             },
-        });
+        );
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => "");
@@ -831,7 +835,7 @@ export async function downloadGoogleModels(
             return;
         }
 
-        const response = await fetch(
+        const response = await tauriFetch(
             `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKeys.google}`,
         );
 
@@ -896,7 +900,7 @@ export async function downloadGrokModels(
             return;
         }
 
-        const response = await fetch("https://api.x.ai/v1/models", {
+        const response = await tauriFetch("https://api.x.ai/v1/models", {
             headers: {
                 Authorization: `Bearer ${apiKeys.grok}`,
             },
@@ -1087,9 +1091,12 @@ export async function downloadGroqModels(
             return;
         }
 
-        const response = await fetch("https://api.groq.com/openai/v1/models", {
-            headers: { Authorization: `Bearer ${apiKeys.groq}` },
-        });
+        const response = await tauriFetch(
+            "https://api.groq.com/openai/v1/models",
+            {
+                headers: { Authorization: `Bearer ${apiKeys.groq}` },
+            },
+        );
 
         if (!response.ok) return;
 
@@ -1127,7 +1134,7 @@ export async function downloadMistralModels(
             return;
         }
 
-        const response = await fetch("https://api.mistral.ai/v1/models", {
+        const response = await tauriFetch("https://api.mistral.ai/v1/models", {
             headers: { Authorization: `Bearer ${apiKeys.mistral}` },
         });
 
@@ -1167,7 +1174,7 @@ export async function downloadCerebrasModels(
             return;
         }
 
-        const response = await fetch("https://api.cerebras.ai/v1/models", {
+        const response = await tauriFetch("https://api.cerebras.ai/v1/models", {
             headers: { Authorization: `Bearer ${apiKeys.cerebras}` },
         });
 
@@ -1207,7 +1214,7 @@ export async function downloadFireworksModels(
             return;
         }
 
-        const response = await fetch(
+        const response = await tauriFetch(
             "https://api.fireworks.ai/inference/v1/models",
             { headers: { Authorization: `Bearer ${apiKeys.fireworks}` } },
         );

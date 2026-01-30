@@ -169,6 +169,10 @@ export class ProviderAnthropic implements IProvider {
             ...(additionalHeaders ?? {}),
         };
 
+        // Anthropic blocks browser-originated requests unless this header is set.
+        // Our app runs in a WebView, so always include it for compatibility.
+        headers["anthropic-dangerous-direct-browser-access"] = "true";
+
         const anthropicBetaHeaderValue = shouldUseNativeWebSearch
             ? mergeAnthropicBetaHeader(
                   headers["anthropic-beta"],

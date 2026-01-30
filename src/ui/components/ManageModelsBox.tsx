@@ -376,6 +376,50 @@ export function ManageModelsBox({
     const settings = useSettings();
     const showCost = settings?.showCost ?? false;
 
+    const isModelAllowed = useCallback(
+        (model: ModelConfig) => {
+            const provider = getProviderName(model.modelId);
+
+            // Vertex models require Vertex AI settings (credentials).
+            if (provider === "vertex") {
+                const vertex = settings?.vertexAI;
+                if (!vertex) return false;
+                return Boolean(
+                    vertex.projectId.trim() &&
+                        vertex.location.trim() &&
+                        vertex.serviceAccountClientEmail.trim() &&
+                        vertex.serviceAccountPrivateKey.trim(),
+                );
+            }
+
+            // Custom provider models require the custom provider to exist and have credentials.
+            if (
+                provider === "custom_openai" ||
+                provider === "custom_anthropic"
+            ) {
+                const providerId = model.modelId.split("::")[1] || "";
+                const kind =
+                    provider === "custom_anthropic" ? "anthropic" : "openai";
+                const customProvider = (settings?.customProviders ?? []).find(
+                    (p) => p.id === providerId && p.kind === kind,
+                );
+                if (!customProvider) return false;
+                return Boolean(
+                    customProvider.apiBaseUrl.trim() &&
+                        customProvider.apiKey.trim(),
+                );
+            }
+
+            if (!apiKeys) return false;
+
+            return hasApiKey(
+                provider.toLowerCase() as keyof typeof apiKeys,
+                apiKeys,
+            );
+        },
+        [apiKeys, settings],
+    );
+
     const selectedSingleModelConfig = useMemo(() => {
         if (mode.type === "single") {
             return modelConfigs.data?.find(
@@ -504,8 +548,9 @@ export function ManageModelsBox({
             .filter(Boolean);
 
         const nonInternalModelConfigs =
-            modelConfigs.data?.filter((m) => !m.isInternal && m.isEnabled) ??
-            [];
+            modelConfigs.data?.filter(
+                (m) => !m.isInternal && m.isEnabled && isModelAllowed(m),
+            ) ?? [];
         const systemModels = nonInternalModelConfigs.filter(
             (m) => m.author === "system",
         );
@@ -602,7 +647,7 @@ export function ManageModelsBox({
             customProviders,
             directByProvider,
         };
-    }, [modelConfigs.data, searchQuery, settings]);
+    }, [isModelAllowed, modelConfigs.data, searchQuery, settings]);
 
     useLayoutEffect(() => {
         if (!listRef.current) return;
@@ -710,115 +755,111 @@ export function ManageModelsBox({
                     />
                 </div>
                 <CommandList ref={listRef}>
-                    <CommandEmpty>No models found</CommandEmpty>
+                    <CommandEmpty>
+                        <div className="px-2 py-3 text-sm text-muted-foreground space-y-2">
+                            <div>No models available.</div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleAddApiKey();
+                                }}
+                            >
+                                Configure providers
+                            </Button>
+                        </div>
+                    </CommandEmpty>
 
                     {/* OpenRouter Models - main list */}
-                    {(modelGroups.openrouter.length > 0 ||
-                        searchQuery === "") && (
-                        <ModelGroup
-                            heading={
-                                <div className="flex items-center justify-between w-full">
-                                    <span>OpenRouter</span>
-                                    {showOpenRouter && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setShowOpenRouterMutation.mutate(
-                                                    false,
-                                                );
-                                            }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
-                                            title="Hide OpenRouter models"
-                                        >
-                                            <ChevronUpIcon className="w-3 h-3" />
-                                            <span className="text-[10px]">
-                                                Hide
-                                            </span>
-                                        </button>
-                                    )}
-                                </div>
-                            }
-                            models={modelGroups.openrouter}
-                            checkedModelConfigIds={checkedModelConfigIds}
-                            mode={mode}
-                            onToggleModelConfig={handleToggleModelConfig}
-                            onAddApiKey={handleAddApiKey}
-                            groupId="openrouter"
-                            showCost={showCost}
-                            refreshButton={
-                                showOpenRouter && (
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                void handleRefreshProviders(
-                                                    "openrouter",
-                                                );
-                                            }}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
-                                            title="Refresh OpenRouter models"
-                                        >
-                                            <RefreshCcwIcon
-                                                className={`w-3 h-3 ${
-                                                    spinningProviders[
-                                                        "openrouter"
-                                                    ]
-                                                        ? "animate-spin"
-                                                        : ""
-                                                }`}
-                                            />
-                                            <span className="text-sm">
-                                                Refresh
-                                            </span>
-                                        </button>
+                    {Boolean(apiKeys?.openrouter) &&
+                        (modelGroups.openrouter.length > 0 ||
+                            searchQuery === "") && (
+                            <ModelGroup
+                                heading={
+                                    <div className="flex items-center justify-between w-full">
+                                        <span>OpenRouter</span>
+                                        {showOpenRouter && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setShowOpenRouterMutation.mutate(
+                                                        false,
+                                                    );
+                                                }}
+                                                className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-1"
+                                                title="Hide OpenRouter models"
+                                            >
+                                                <ChevronUpIcon className="w-3 h-3" />
+                                                <span className="text-[10px]">
+                                                    Hide
+                                                </span>
+                                            </button>
+                                        )}
                                     </div>
-                                )
-                            }
-                            emptyState={
-                                !showOpenRouter ? (
-                                    <div className="px-2 mb-4">
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            size="sm"
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                setShowOpenRouterMutation.mutate(
-                                                    true,
-                                                );
-                                            }}
-                                        >
-                                            Show OpenRouter models
-                                        </Button>
-                                    </div>
-                                ) : apiKeys && !apiKeys.openrouter ? (
-                                    <div className="px-2 mb-4 text-sm text-muted-foreground">
-                                        <p className="mb-2">
-                                            OpenRouter models require an API
-                                            key.
-                                        </p>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            size="sm"
-                                            onClick={(
-                                                e: React.MouseEvent<HTMLButtonElement>,
-                                            ) => {
-                                                e.preventDefault();
-                                                handleAddApiKey();
-                                            }}
-                                        >
-                                            Add OpenRouter API key in Settings
-                                        </Button>
-                                    </div>
-                                ) : undefined
-                            }
-                        />
-                    )}
+                                }
+                                models={modelGroups.openrouter}
+                                checkedModelConfigIds={checkedModelConfigIds}
+                                mode={mode}
+                                onToggleModelConfig={handleToggleModelConfig}
+                                onAddApiKey={handleAddApiKey}
+                                groupId="openrouter"
+                                showCost={showCost}
+                                refreshButton={
+                                    showOpenRouter && (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    void handleRefreshProviders(
+                                                        "openrouter",
+                                                    );
+                                                }}
+                                                className="p-1.5 hover:bg-accent text-muted-foreground/50 rounded-md flex items-center gap-2"
+                                                title="Refresh OpenRouter models"
+                                            >
+                                                <RefreshCcwIcon
+                                                    className={`w-3 h-3 ${
+                                                        spinningProviders[
+                                                            "openrouter"
+                                                        ]
+                                                            ? "animate-spin"
+                                                            : ""
+                                                    }`}
+                                                />
+                                                <span className="text-sm">
+                                                    Refresh
+                                                </span>
+                                            </button>
+                                        </div>
+                                    )
+                                }
+                                emptyState={
+                                    !showOpenRouter ? (
+                                        <div className="px-2 mb-4">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                size="sm"
+                                                onClick={(
+                                                    e: React.MouseEvent<HTMLButtonElement>,
+                                                ) => {
+                                                    e.preventDefault();
+                                                    setShowOpenRouterMutation.mutate(
+                                                        true,
+                                                    );
+                                                }}
+                                            >
+                                                Show OpenRouter models
+                                            </Button>
+                                        </div>
+                                    ) : undefined
+                                }
+                            />
+                        )}
 
                     {/* Direct Provider Models (Anthropic, OpenAI, Google, etc.) */}
                     {modelGroups.directByProvider.anthropic.length > 0 && (
