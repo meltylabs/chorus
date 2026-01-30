@@ -341,7 +341,8 @@ export class ProviderOpenAI implements IProvider {
             }
         > = {};
 
-        let reasoningSummaryText = "";
+        let inReasoningSummary = false;
+        let streamedReasoningSummaryText = false;
         let reasoningSummaryStartedAtMs: number | undefined;
         let sawOutputText = false;
         let appendedCitations = false;
@@ -363,11 +364,19 @@ export class ProviderOpenAI implements IProvider {
             return text;
         };
 
-        const flushReasoningSummaryBlock = () => {
-            const content = reasoningSummaryText.trim();
-            if (!content) return "";
+        const openReasoningSummaryBlockIfNeeded = () => {
+            if (inReasoningSummary) return "";
+            inReasoningSummary = true;
+            streamedReasoningSummaryText = false;
+            reasoningSummaryStartedAtMs = Date.now();
+            return "<think>\n";
+        };
 
-            let block = `<think>\n${sanitizeTextDelta(content)}\n</think>`;
+        const closeReasoningSummaryBlockIfNeeded = () => {
+            if (!inReasoningSummary) return "";
+            inReasoningSummary = false;
+
+            let block = "\n</think>";
             if (reasoningSummaryStartedAtMs !== undefined) {
                 const seconds = Math.max(
                     1,
@@ -379,8 +388,8 @@ export class ProviderOpenAI implements IProvider {
             }
             block += "\n\n";
 
-            reasoningSummaryText = "";
             reasoningSummaryStartedAtMs = undefined;
+            streamedReasoningSummaryText = false;
             return block;
         };
 
@@ -442,25 +451,22 @@ export class ProviderOpenAI implements IProvider {
                     (event.type === "response.reasoning_summary_text.delta" ||
                         event.type === "response.reasoning_summary.delta")
                 ) {
-                    if (reasoningSummaryStartedAtMs === undefined) {
-                        reasoningSummaryStartedAtMs = Date.now();
-                    }
-                    reasoningSummaryText += event.delta;
+                    const openBlock = openReasoningSummaryBlockIfNeeded();
+                    streamedReasoningSummaryText ||= Boolean(event.delta);
+                    onChunk(openBlock + sanitizeTextDelta(event.delta));
                 } else if (
                     shouldRequestReasoningSummary &&
                     !sawOutputText &&
                     event.type === "response.reasoning_summary_text.done"
                 ) {
-                    if (reasoningSummaryStartedAtMs === undefined) {
-                        reasoningSummaryStartedAtMs = Date.now();
+                    // Some SDKs only emit a done event with full text.
+                    if (!streamedReasoningSummaryText && event.text) {
+                        const openBlock = openReasoningSummaryBlockIfNeeded();
+                        streamedReasoningSummaryText = true;
+                        onChunk(openBlock + sanitizeTextDelta(event.text));
                     }
-                    if (!reasoningSummaryText && event.text) {
-                        reasoningSummaryText = event.text;
-                    }
-                    const summaryBlock = flushReasoningSummaryBlock();
-                    if (summaryBlock) {
-                        onChunk(summaryBlock);
-                    }
+                    const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                    if (closeBlock) onChunk(closeBlock);
                 }
                 // Some SDKs emit an initial output_text part via content_part.added.
                 // Flush any pending reasoning summary before we start the assistant's visible output.
@@ -468,31 +474,32 @@ export class ProviderOpenAI implements IProvider {
                     event.type === "response.content_part.added" &&
                     event.part.type === "output_text"
                 ) {
-                    const summaryBlock = flushReasoningSummaryBlock();
                     if (
                         typeof event.part.text === "string" &&
                         event.part.text
                     ) {
                         sawOutputText = true;
+                        const closeBlock = closeReasoningSummaryBlockIfNeeded();
                         onChunk(
-                            summaryBlock + sanitizeTextDelta(event.part.text),
+                            closeBlock + sanitizeTextDelta(event.part.text),
                         );
-                    } else if (summaryBlock) {
-                        onChunk(summaryBlock);
+                    } else {
+                        const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                        if (closeBlock) onChunk(closeBlock);
                     }
                 }
                 // Handle text streaming
                 else if (event.type === "response.output_text.delta") {
                     sawOutputText = true;
-                    const summaryBlock = flushReasoningSummaryBlock();
-                    onChunk(summaryBlock + sanitizeTextDelta(event.delta));
+                    const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                    onChunk(closeBlock + sanitizeTextDelta(event.delta));
                 }
                 // Handle text done event (if no deltas were emitted)
                 else if (event.type === "response.output_text.done") {
                     if (!sawOutputText && event.text) {
                         sawOutputText = true;
-                        const summaryBlock = flushReasoningSummaryBlock();
-                        onChunk(summaryBlock + sanitizeTextDelta(event.text));
+                        const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                        onChunk(closeBlock + sanitizeTextDelta(event.text));
                     }
                 }
                 // TOOL CALL HANDLING - OpenAI streams tool calls in multiple events:
@@ -558,26 +565,20 @@ export class ProviderOpenAI implements IProvider {
                 }
                 // 5. Handle response.done event for citations
                 else if (event.type === "response.done" && event.output) {
-                    const summaryBlock = flushReasoningSummaryBlock();
-                    if (summaryBlock) {
-                        onChunk(summaryBlock);
-                    }
+                    const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                    if (closeBlock) onChunk(closeBlock);
                     appendCitationsFromOutput(event.output);
                 }
                 // Some SDKs emit response.completed with the full response payload (including output annotations)
                 else if (event.type === "response.completed") {
-                    const summaryBlock = flushReasoningSummaryBlock();
-                    if (summaryBlock) {
-                        onChunk(summaryBlock);
-                    }
+                    const closeBlock = closeReasoningSummaryBlockIfNeeded();
+                    if (closeBlock) onChunk(closeBlock);
                     appendCitationsFromOutput(event.response?.output);
                 }
             }
         } finally {
-            const summaryBlock = flushReasoningSummaryBlock();
-            if (summaryBlock) {
-                onChunk(summaryBlock);
-            }
+            const closeBlock = closeReasoningSummaryBlockIfNeeded();
+            if (closeBlock) onChunk(closeBlock);
         }
 
         await onComplete(
