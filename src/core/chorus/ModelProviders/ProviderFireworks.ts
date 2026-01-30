@@ -102,11 +102,42 @@ export class ProviderFireworks implements IProvider {
             !lowerModelName.includes("minimax") &&
             !lowerModelName.includes("m2");
 
-        // Some Fireworks models (notably Kimi) stream full chain-of-thought (and sometimes draft answer text)
-        // in `reasoning_content`, which we should not display to users. We'll still show a timed thinking block,
-        // but redact the streamed text.
-        const redactReasoningContent =
-            Boolean(modelConfig.showThoughts) && lowerModelName.includes("kimi");
+        // Kimi streams verbose reasoning_content that includes draft answers.
+        // For Kimi, we should redact the reasoning content and only show the clean answer from `content`.
+        const shouldRedactReasoning = lowerModelName.includes("kimi");
+
+        const detectNativeThinkMarkup = (text: string): boolean => {
+            const lower = text.toLowerCase();
+            return (
+                lower.includes("<think") ||
+                lower.includes("</think") ||
+                lower.includes("<thought") ||
+                lower.includes("</thought") ||
+                lower.includes("<thinkmeta")
+            );
+        };
+
+        const stripNativeThinkTags = (text: string): { thinking: string; answer: string } => {
+            // Extract content inside <think>...</think> or <thought>...</thought>
+            const thinkMatch = text.match(/<think(?:\s+[^>]*?)?>([\s\S]*?)<\/think\s*>/i);
+            const thoughtMatch = text.match(/<thought(?:\s+[^>]*?)?>([\s\S]*?)<\/thought\s*>/i);
+
+            let thinking = "";
+            let remainingText = text;
+
+            if (thinkMatch) {
+                thinking = thinkMatch[1].trim();
+                remainingText = text.replace(/<think(?:\s+[^>]*?)?>([\s\S]*?)<\/think\s*>/gi, "").trim();
+            } else if (thoughtMatch) {
+                thinking = thoughtMatch[1].trim();
+                remainingText = text.replace(/<thought(?:\s+[^>]*?)?>([\s\S]*?)<\/thought\s*>/gi, "").trim();
+            }
+
+            // Remove <thinkmeta> tags from remaining text
+            const answer = remainingText.replace(/<thinkmeta\s+[^>]*?\/>/gi, "").trim();
+
+            return { thinking, answer };
+        };
 
         if (modelConfig.showThoughts) {
             // Fireworks streams reasoning in `reasoning_content` when enabled.
@@ -131,6 +162,14 @@ export class ProviderFireworks implements IProvider {
         let sawNativeReasoning = false;
         let sawContent = false;
         let reasoningBuffer = "";
+        type ReasoningStreamMode = "unknown" | "wrapped";
+        let reasoningStreamMode: ReasoningStreamMode = "unknown";
+        let pendingReasoning = "";
+        let nativeProbe = "";
+        const MAX_NATIVE_PROBE_CHARS = 96;
+        const DECIDE_WRAPPED_AFTER_CHARS = 128;
+        let nativeThinkDetected = false;
+        let nativeThinkClosed = false;
         let wroteRedactedPlaceholder = false;
 
         const closeReasoning = () => {
@@ -198,27 +237,194 @@ export class ProviderFireworks implements IProvider {
 
             if (modelConfig.showThoughts && reasoningDelta) {
                 sawNativeReasoning = true;
-                if (!inReasoning) {
-                    inReasoning = true;
-                    wroteRedactedPlaceholder = false;
-                    reasoningStartedAtMs = Date.now();
-                    onChunk("<think>");
-                }
                 reasoningBuffer += reasoningDelta;
-                if (redactReasoningContent) {
+
+                // For Kimi, redact the verbose reasoning content
+                if (shouldRedactReasoning) {
+                    if (!inReasoning) {
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                    }
                     if (!wroteRedactedPlaceholder) {
                         wroteRedactedPlaceholder = true;
                         onChunk("[redacted]");
                     }
-                } else {
-                    onChunk(reasoningDelta);
+                    continue;
+                }
+
+                if (reasoningStreamMode === "unknown") {
+                    pendingReasoning += reasoningDelta;
+                    nativeProbe = (nativeProbe + reasoningDelta).slice(
+                        -MAX_NATIVE_PROBE_CHARS,
+                    );
+
+                    if (detectNativeThinkMarkup(nativeProbe)) {
+                        // Detected native <think> tags - we'll strip them and wrap content ourselves
+                        nativeThinkDetected = true;
+                        reasoningStreamMode = "wrapped";
+
+                        // Process the buffered text
+                        let textToProcess = pendingReasoning;
+                        pendingReasoning = "";
+
+                        // Remove opening tags
+                        textToProcess = textToProcess
+                            .replace(/<think(?:\s+[^>]*?)?>/gi, "")
+                            .replace(/<thought(?:\s+[^>]*?)?>/gi, "");
+
+                        // Check if we've hit the closing tag
+                        const closingTagMatch = textToProcess.match(/<\/(think|thought)\s*>/i);
+                        if (closingTagMatch) {
+                            nativeThinkClosed = true;
+                            const parts = textToProcess.split(/<\/(think|thought)\s*>/i);
+                            const thinkingPart = parts[0];
+                            // Clean native <thinkmeta> tags from answer part
+                            const answerPart = parts.slice(2).join("")
+                                .replace(/<thinkmeta\s+[^>]*?\/>/gi, "")
+                                .trim();
+
+                            if (thinkingPart) {
+                                inReasoning = true;
+                                reasoningStartedAtMs = Date.now();
+                                onChunk("<think>");
+                                onChunk(thinkingPart);
+                            }
+                            closeReasoning();
+                            if (answerPart) {
+                                onChunk(answerPart);
+                            }
+                        } else {
+                            // Opening tag found but no closing tag yet
+                            if (textToProcess) {
+                                inReasoning = true;
+                                reasoningStartedAtMs = Date.now();
+                                onChunk("<think>");
+                                onChunk(textToProcess);
+                            }
+                        }
+                    } else if (
+                        pendingReasoning.length >=
+                        DECIDE_WRAPPED_AFTER_CHARS
+                    ) {
+                        reasoningStreamMode = "wrapped";
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                        onChunk(pendingReasoning);
+                        pendingReasoning = "";
+                    }
+                } else if (reasoningStreamMode === "wrapped") {
+                    let textToProcess = reasoningDelta;
+
+                    if (nativeThinkDetected && !nativeThinkClosed) {
+                        // Remove any native tags
+                        textToProcess = textToProcess
+                            .replace(/<think(?:\s+[^>]*?)?>/gi, "")
+                            .replace(/<thought(?:\s+[^>]*?)?>/gi, "")
+                            .replace(/<thinkmeta\s+[^>]*?\/>/gi, "");
+
+                        // Check for closing tag
+                        const closingTagMatch = textToProcess.match(/<\/(think|thought)\s*>/i);
+                        if (closingTagMatch) {
+                            nativeThinkClosed = true;
+                            const parts = textToProcess.split(/<\/(think|thought)\s*>/i);
+                            const thinkingPart = parts[0];
+                            // Clean native <thinkmeta> tags from answer part
+                            const answerPart = parts.slice(2).join("")
+                                .replace(/<thinkmeta\s+[^>]*?\/>/gi, "")
+                                .trim();
+
+                            if (thinkingPart && inReasoning) {
+                                onChunk(thinkingPart);
+                            }
+                            closeReasoning();
+                            if (answerPart) {
+                                onChunk(answerPart);
+                            }
+                        } else {
+                            // No closing tag yet, continue accumulating thinking content
+                            if (!inReasoning) {
+                                inReasoning = true;
+                                reasoningStartedAtMs = Date.now();
+                                onChunk("<think>");
+                            }
+                            if (textToProcess) {
+                                onChunk(textToProcess);
+                            }
+                        }
+                    } else if (nativeThinkDetected && nativeThinkClosed) {
+                        // We're past the native </think> tag, treat remaining as answer
+                        onChunk(textToProcess);
+                    } else {
+                        // Normal wrapped mode, no native tags detected
+                        if (!inReasoning) {
+                            inReasoning = true;
+                            reasoningStartedAtMs = Date.now();
+                            onChunk("<think>");
+                        }
+                        onChunk(textToProcess);
+                    }
                 }
             }
 
             if (typeof delta?.content === "string" && delta.content) {
                 sawContent = true;
+                if (modelConfig.showThoughts) {
+                    if (reasoningStreamMode === "unknown") {
+                        // If we got here, we buffered a little reasoning but haven't decided how to render it.
+                        // No native markup detected, so default to wrapped.
+                        reasoningStreamMode = "wrapped";
+                        if (pendingReasoning) {
+                            inReasoning = true;
+                            reasoningStartedAtMs = Date.now();
+                            onChunk("<think>");
+                            onChunk(pendingReasoning);
+                            pendingReasoning = "";
+                        }
+                    } else if (nativeThinkDetected && pendingReasoning) {
+                        // Flush any buffered reasoning
+                        if (pendingReasoning) {
+                            onChunk(pendingReasoning);
+                            pendingReasoning = "";
+                        }
+                    }
+                }
                 closeReasoning();
                 onChunk(sanitizeTextDelta(delta.content));
+            }
+        }
+
+        if (modelConfig.showThoughts) {
+            if (reasoningStreamMode === "unknown") {
+                // Stream ended before we hit our buffering threshold; check for native markup.
+                if (detectNativeThinkMarkup(nativeProbe)) {
+                    // Has native tags - strip them
+                    const { thinking, answer } = stripNativeThinkTags(pendingReasoning);
+                    if (thinking) {
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                        onChunk(thinking);
+                        closeReasoning();
+                    }
+                    if (answer) {
+                        onChunk(answer);
+                    }
+                    pendingReasoning = "";
+                } else {
+                    reasoningStreamMode = "wrapped";
+                    if (pendingReasoning) {
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                        onChunk(pendingReasoning);
+                        pendingReasoning = "";
+                    }
+                }
+            } else if (pendingReasoning) {
+                onChunk(pendingReasoning);
+                pendingReasoning = "";
             }
         }
 
@@ -226,8 +432,13 @@ export class ProviderFireworks implements IProvider {
 
         // Some models / endpoints may stream all text in a reasoning field (with no `content`).
         // In that case, surface the buffered text as the main output too so users aren't left
-        // with an empty assistant message.
-        if (modelConfig.showThoughts && !sawContent) {
+        // with an empty assistant message. Skip this if we already handled native tags or if we're redacting.
+        if (
+            modelConfig.showThoughts &&
+            !sawContent &&
+            !nativeThinkDetected &&
+            !shouldRedactReasoning
+        ) {
             const fallbackText = reasoningBuffer.trim();
             if (fallbackText) {
                 onChunk("\n\n" + sanitizeTextDelta(fallbackText));
