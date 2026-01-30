@@ -155,8 +155,8 @@ function readModelConfig(row: ModelConfigDBRow): ModelConfig {
         isInternal: row.is_internal,
         isDeprecated: row.is_deprecated,
         budgetTokens: row.budget_tokens ?? undefined,
-        reasoningEffort: row.reasoning_effort ?? undefined,
-        thinkingLevel: row.thinking_level ?? undefined,
+        reasoningEffort: row.reasoning_effort,
+        thinkingLevel: row.thinking_level,
         showThoughts: Boolean(row.show_thoughts),
         newUntil: row.new_until ?? undefined,
         promptPricePerToken: row.prompt_price_per_token ?? undefined,
@@ -276,7 +276,10 @@ export async function fetchModelConfigs() {
         if (togetherDownloadPromise) {
             await togetherDownloadPromise;
         } else {
-            togetherDownloadPromise = Models.downloadTogetherModels(db, apiKeys);
+            togetherDownloadPromise = Models.downloadTogetherModels(
+                db,
+                apiKeys,
+            );
             await togetherDownloadPromise;
         }
     }

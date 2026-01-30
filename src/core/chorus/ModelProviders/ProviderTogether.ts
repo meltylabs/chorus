@@ -1,7 +1,5 @@
 import Together from "together-ai";
-import type {
-    CompletionCreateParamsStreaming,
-} from "together-ai/resources/chat/completions";
+import type { CompletionCreateParamsStreaming } from "together-ai/resources/chat/completions";
 import {
     StreamResponseParams,
     LLMMessage,

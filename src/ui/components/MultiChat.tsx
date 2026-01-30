@@ -1524,8 +1524,8 @@ function ToolsBlockView({
                     ? "w-full max-w-prose"
                     : modelCount === 1
                       ? isSidebarCollapsed
-                        ? "w-full flex-1 max-w-6xl" // Sidebar collapsed: extra wide
-                        : "w-full flex-1 max-w-5xl" // Sidebar open: very wide
+                          ? "w-full flex-1 max-w-6xl" // Sidebar collapsed: extra wide
+                          : "w-full flex-1 max-w-5xl" // Sidebar open: very wide
                       : "w-full flex-1 min-w-[450px] max-w-[550px]"; // Multiple models: current behavior
 
                 return (

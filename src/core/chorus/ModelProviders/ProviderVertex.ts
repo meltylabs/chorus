@@ -300,7 +300,15 @@ export class ProviderVertex implements IProvider {
             ];
         }
 
-        const streamParams: OpenAI.ChatCompletionCreateParamsStreaming = {
+        type VertexStreamParams = OpenAI.ChatCompletionCreateParamsStreaming & {
+            // Vertex OpenAI-compatible API extensions
+            web_search_options?: Record<string, unknown>;
+            extra_body?: {
+                google?: Record<string, unknown>;
+            };
+        };
+
+        const streamParams: VertexStreamParams = {
             model: modelName,
             messages,
             stream: true,
@@ -317,23 +325,43 @@ export class ProviderVertex implements IProvider {
             // Vertex AI OpenAI-compatible web search grounding.
             // The API accepts `web_search_options` but does not support sub-options.
             // https://docs.cloud.google.com/vertex-ai/generative-ai/docs/migrate/openai/overview
-            (
-                streamParams as unknown as Record<string, unknown>
-            ).web_search_options = {};
+            streamParams.web_search_options = {};
         }
 
-        // Gemini thinking parameters (Vertex OpenAI-compatible API)
+        // Gemini thinking via extra_body.google (Vertex OpenAI-compatible API)
+        // Ref: https://cloud.google.com/vertex-ai/generative-ai/docs/migrate/openai/overview
         const isGemini3 = modelName.includes("gemini-3");
         const isGemini25 = modelName.includes("gemini-2.5");
 
-        if (isGemini3 && modelConfig.thinkingLevel) {
-            (
-                streamParams as unknown as Record<string, unknown>
-            ).thinking_level = modelConfig.thinkingLevel;
-        } else if (isGemini25 && modelConfig.budgetTokens) {
-            (
-                streamParams as unknown as Record<string, unknown>
-            ).thinking_budget = modelConfig.budgetTokens;
+        const showThoughts = Boolean(modelConfig.showThoughts);
+
+        const thinkingEnabled =
+            (isGemini3 && (modelConfig.thinkingLevel || showThoughts)) ||
+            (isGemini25 &&
+                (modelConfig.budgetTokens !== undefined || showThoughts));
+
+        if (thinkingEnabled) {
+            const thinkingConfig: Record<string, unknown> = {};
+
+            if (isGemini3) {
+                thinkingConfig.thinking_level =
+                    modelConfig.thinkingLevel || "HIGH";
+            } else if (isGemini25) {
+                thinkingConfig.thinking_budget = modelConfig.budgetTokens ?? -1;
+            }
+
+            if (showThoughts) {
+                thinkingConfig.include_thoughts = true;
+            }
+
+            const googleExtra: Record<string, unknown> = {
+                thinking_config: thinkingConfig,
+                ...(showThoughts ? { thought_tag_marker: "think" } : {}),
+            };
+
+            streamParams.extra_body = {
+                google: googleExtra,
+            };
         }
 
         if (tools && tools.length > 0) {
@@ -343,13 +371,62 @@ export class ProviderVertex implements IProvider {
         }
 
         const chunks: OpenAI.ChatCompletionChunk[] = [];
+        let inReasoning = false;
+        let reasoningStartedAtMs: number | undefined;
+
+        const closeReasoning = () => {
+            if (!inReasoning) return;
+            inReasoning = false;
+            onChunk("</think>");
+            if (reasoningStartedAtMs !== undefined) {
+                const seconds = Math.max(
+                    1,
+                    Math.round((Date.now() - reasoningStartedAtMs) / 1000),
+                );
+                onChunk(`<thinkmeta seconds="${seconds}"/>`);
+            }
+            onChunk("\n\n");
+            reasoningStartedAtMs = undefined;
+        };
 
         try {
             const stream = await client.chat.completions.create(streamParams);
             for await (const chunk of stream) {
                 chunks.push(chunk);
-                if (chunk.choices[0]?.delta?.content) {
-                    onChunk(chunk.choices[0].delta.content);
+                const delta = chunk.choices[0]?.delta;
+
+                type VertexDelta = NonNullable<typeof delta> & {
+                    reasoning?: unknown;
+                    reasoning_content?: unknown;
+                };
+
+                const isVertexDelta = (d: typeof delta): d is VertexDelta => {
+                    if (!d || typeof d !== "object") return false;
+                    return "reasoning_content" in d || "reasoning" in d;
+                };
+
+                let reasoningDelta: string | undefined;
+                if (showThoughts && isVertexDelta(delta)) {
+                    if (typeof delta.reasoning_content === "string") {
+                        reasoningDelta = delta.reasoning_content;
+                    } else if (typeof delta.reasoning === "string") {
+                        reasoningDelta = delta.reasoning;
+                    }
+                }
+
+                // Vertex may return thoughts in a separate reasoning field OR inline via <thought>/<think> tags.
+                if (showThoughts && reasoningDelta) {
+                    if (!inReasoning) {
+                        inReasoning = true;
+                        reasoningStartedAtMs = Date.now();
+                        onChunk("<think>");
+                    }
+                    onChunk(reasoningDelta);
+                }
+
+                if (typeof delta?.content === "string" && delta.content) {
+                    closeReasoning();
+                    onChunk(delta.content);
                 }
             }
         } catch (error: unknown) {
@@ -399,6 +476,8 @@ export class ProviderVertex implements IProvider {
             chunks,
             tools ?? [],
         );
+
+        closeReasoning();
 
         await onComplete(
             undefined,

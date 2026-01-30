@@ -10,8 +10,10 @@ export default tseslint.config(
         ignores: [
             "src-tauri/target/**/*",
             "dist/**/*",
+            "reference/**/*",
             "postcss.config.js",
             "vite.config.ts",
+            "vitest.config.ts",
             "tailwind.config.cjs",
             ".github/**/*.yml",
             ".github/**/*.yaml",

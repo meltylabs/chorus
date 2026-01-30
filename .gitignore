@@ -36,3 +36,5 @@ settings.local.json
 
 # husky
 !.husky/
+
+reference/

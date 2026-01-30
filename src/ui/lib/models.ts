@@ -38,7 +38,5 @@ export const OPENROUTER_CUSTOM_PROVIDER_LOGOS: Record<string, ProviderName> = {
 export const ALLOWED_MODEL_IDS_FOR_QUICK_CHAT: string[] = [
     ...Object.values(MODEL_IDS).flatMap((tier) => Object.values(tier)),
     // Add our custom models for quick chat
-    "24711c64-725c-4bdd-b5eb-65fe1dbfcde8", // Ambient Claude
-    "google::ambient-gemini-2.5-pro-preview-03-25", // Ambient Gemini
     "openrouter::qwen/qwen3-32b", // Qwen 32B
 ];

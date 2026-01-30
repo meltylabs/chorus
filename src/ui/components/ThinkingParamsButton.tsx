@@ -138,12 +138,29 @@ export function ThinkingParamsButton({
         modelConfig.thinkingLevel ||
         modelConfig.showThoughts;
 
+    const reasoningEffortValue =
+        modelConfig.reasoningEffort === null
+            ? "none"
+            : (modelConfig.reasoningEffort ?? "medium");
+
+    const thinkingLevelValue =
+        modelConfig.thinkingLevel === null
+            ? "none"
+            : (modelConfig.thinkingLevel ?? "HIGH");
+
     // Each handler ONLY updates its own field - avoids stale closure issues
     const handleReasoningEffortChange = async (value: string) => {
-        const newEffort =
-            value === "default"
-                ? null
-                : (value as "low" | "medium" | "high" | "xhigh");
+        const effortMap: Record<string, "low" | "medium" | "high" | "xhigh"> = {
+            low: "low",
+            medium: "medium",
+            high: "high",
+            xhigh: "xhigh",
+        };
+
+        const newEffort = value === "none" ? null : effortMap[value];
+        if (newEffort === undefined && value !== "none") {
+            return;
+        }
 
         try {
             await updateThinkingParams.mutateAsync({
@@ -156,7 +173,15 @@ export function ThinkingParamsButton({
     };
 
     const handleThinkingLevelChange = async (value: string) => {
-        const newLevel = value === "default" ? null : (value as "LOW" | "HIGH");
+        const levelMap: Record<string, "LOW" | "HIGH"> = {
+            LOW: "LOW",
+            HIGH: "HIGH",
+        };
+
+        const newLevel = value === "none" ? null : levelMap[value];
+        if (newLevel === undefined && value !== "none") {
+            return;
+        }
 
         try {
             await updateThinkingParams.mutateAsync({
@@ -301,15 +326,15 @@ export function ThinkingParamsButton({
                                 )}
                             </Label>
                             <Select
-                                value={modelConfig.reasoningEffort || "default"}
+                                value={reasoningEffortValue}
                                 onValueChange={handleReasoningEffortChange}
                             >
                                 <SelectTrigger id="reasoning-effort">
-                                    <SelectValue placeholder="Default (medium)" />
+                                    <SelectValue placeholder="Medium" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="default">
-                                        Default (medium)
+                                    <SelectItem value="none">
+                                        None (disable reasoning)
                                     </SelectItem>
                                     <SelectItem value="low">
                                         Low - Fast & economical
@@ -383,15 +408,15 @@ export function ThinkingParamsButton({
                                 </span>
                             </Label>
                             <Select
-                                value={modelConfig.thinkingLevel || "default"}
+                                value={thinkingLevelValue}
                                 onValueChange={handleThinkingLevelChange}
                             >
                                 <SelectTrigger id="thinking-level">
-                                    <SelectValue placeholder="Default (HIGH)" />
+                                    <SelectValue placeholder="HIGH" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="default">
-                                        Default (HIGH)
+                                    <SelectItem value="none">
+                                        None (disable thinking)
                                     </SelectItem>
                                     <SelectItem value="LOW">
                                         LOW - Simple tasks, faster

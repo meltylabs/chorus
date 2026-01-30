@@ -1,11 +1,9 @@
-import _ from "lodash";
 import OpenAI from "openai";
 import { StreamResponseParams } from "../Models";
 import { IProvider, ModelDisabled } from "./IProvider";
 import OpenAICompletionsAPIUtils from "@core/chorus/OpenAICompletionsAPIUtils";
 import { canProceedWithProvider } from "@core/utilities/ProxyUtils";
 import JSON5 from "json5";
-import * as Prompts from "@core/chorus/prompts/prompts";
 
 interface ProviderError {
     message: string;
@@ -78,17 +76,11 @@ export class ProviderOpenRouter implements IProvider {
                 },
             );
 
-        const systemPrompt = [
-            modelConfig.showThoughts
-                ? Prompts.THOUGHTS_SYSTEM_PROMPT
-                : undefined,
-            modelConfig.systemPrompt,
-        ]
-            .filter(Boolean)
-            .join("\n\n");
-
-        if (systemPrompt) {
-            messages = [{ role: "system", content: systemPrompt }, ...messages];
+        if (modelConfig.systemPrompt) {
+            messages = [
+                { role: "system", content: modelConfig.systemPrompt },
+                ...messages,
+            ];
         }
 
         const params: OpenAI.ChatCompletionCreateParamsStreaming & {
@@ -97,7 +89,7 @@ export class ProviderOpenRouter implements IProvider {
             model: modelName,
             messages,
             stream: true,
-            include_reasoning: true,
+            include_reasoning: Boolean(modelConfig.showThoughts),
         };
 
         // Add tools definitions
@@ -111,6 +103,7 @@ export class ProviderOpenRouter implements IProvider {
         let generationId: string | undefined;
         let inReasoning = false;
         let reasoningStartedAtMs: number | undefined;
+        let sawNativeReasoning = false;
 
         const closeReasoning = () => {
             if (!inReasoning) return;
@@ -124,6 +117,23 @@ export class ProviderOpenRouter implements IProvider {
                 onChunk(`<thinkmeta seconds="${seconds}"/>`);
             }
             reasoningStartedAtMs = undefined;
+        };
+
+        const sanitizeTextDelta = (text: string) => {
+            if (
+                sawNativeReasoning &&
+                (text.includes("<think") ||
+                    text.includes("</think") ||
+                    text.includes("<thought") ||
+                    text.includes("</thought"))
+            ) {
+                return text
+                    .replace(/<think/g, "&lt;think")
+                    .replace(/<\/think/g, "&lt;/think")
+                    .replace(/<thought/g, "&lt;thought")
+                    .replace(/<\/thought/g, "&lt;/thought");
+            }
+            return text;
         };
 
         try {
@@ -149,7 +159,8 @@ export class ProviderOpenRouter implements IProvider {
                           ? delta.reasoning_content
                           : undefined;
 
-                if (reasoningDelta) {
+                if (modelConfig.showThoughts && reasoningDelta) {
+                    sawNativeReasoning = true;
                     if (!inReasoning) {
                         inReasoning = true;
                         reasoningStartedAtMs = Date.now();
@@ -158,9 +169,9 @@ export class ProviderOpenRouter implements IProvider {
                     onChunk(reasoningDelta);
                 }
 
-                if (delta?.content) {
+                if (typeof delta?.content === "string" && delta.content) {
                     closeReasoning();
-                    onChunk(delta.content);
+                    onChunk(sanitizeTextDelta(delta.content));
                 }
             }
         } catch (error: unknown) {

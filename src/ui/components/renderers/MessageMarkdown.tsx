@@ -234,28 +234,41 @@ export const MessageMarkdown = ({ text }: { text: string }) => {
     // Re-encode think tags, since we do want to render those
     // Also, change <thought> to <think>, since Google uses <thought> (apparently)
     const processedMainText = mainText
+        // First: Handle closed blocks WITH thinkmeta (highest priority)
         .replace(
-            /&lt;think(?:\s+[^]*?)?&gt;([\s\S]*?)&lt;\/think\s*&gt;\s*(?:&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;)?/g,
-            (_match, content, seconds: string | undefined) => {
-                const secondsAttr = seconds ? ` seconds="${seconds}"` : "";
-                return `<think complete="true"${secondsAttr}>\n${content}\n</think>\n\n`;
+            /&lt;think(?:\s+[^>]*?)?&gt;([\s\S]*?)&lt;\/think\s*&gt;\s*&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;/g,
+            (_match, content, seconds: string) => {
+                return `<think complete="true" seconds="${seconds}">\n${content}\n</think>\n\n`;
             },
         )
         .replace(
-            /&lt;thought(?:\s+[^]*?)?&gt;([\s\S]*?)&lt;\/thought\s*&gt;\s*(?:&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;)?/g,
-            (_match, content, seconds: string | undefined) => {
-                const secondsAttr = seconds ? ` seconds="${seconds}"` : "";
-                return `<think complete="true"${secondsAttr}>\n${content}\n</think>\n\n`;
+            /&lt;thought(?:\s+[^>]*?)?&gt;([\s\S]*?)&lt;\/thought\s*&gt;\s*&lt;thinkmeta\s+seconds=&quot;(\d+)&quot;\s*\/&gt;/g,
+            (_match, content, seconds: string) => {
+                return `<think complete="true" seconds="${seconds}">\n${content}\n</think>\n\n`;
+            },
+        )
+        // Second: Handle closed blocks WITHOUT thinkmeta (must come before unclosed patterns)
+        .replace(
+            /&lt;think(?:\s+[^>]*?)?&gt;([\s\S]*?)&lt;\/think\s*&gt;/g,
+            (_match, content) => {
+                return `<think complete="true">\n${content}\n</think>\n\n`;
             },
         )
         .replace(
-            /&lt;think(?:\s+[^]*?)?&gt;([\s\S]*?)$/g,
+            /&lt;thought(?:\s+[^>]*?)?&gt;([\s\S]*?)&lt;\/thought\s*&gt;/g,
+            (_match, content) => {
+                return `<think complete="true">\n${content}\n</think>\n\n`;
+            },
+        )
+        // Third: Handle unclosed blocks (fallback for streaming)
+        .replace(
+            /&lt;think(?:\s+[^>]*?)?&gt;([\s\S]*?)$/g,
             (_match, content) => {
                 return `<think complete="false">\n${content}\n</think>\n\n`;
             },
         )
         .replace(
-            /&lt;thought(?:\s+[^]*?)?&gt;([\s\S]*?)$/g,
+            /&lt;thought(?:\s+[^>]*?)?&gt;([\s\S]*?)$/g,
             (_match, content) => {
                 return `<think complete="false">\n${content}\n</think>\n\n`;
             },
