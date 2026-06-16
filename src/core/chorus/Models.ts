@@ -8,6 +8,7 @@
 import { ProviderOpenAI } from "./ModelProviders/ProviderOpenAI";
 import { ProviderAnthropic } from "./ModelProviders/ProviderAnthropic";
 import { ProviderOpenRouter } from "./ModelProviders/ProviderOpenRouter";
+import { ProviderOpenPaths } from "./ModelProviders/ProviderOpenPaths";
 import { ProviderPerplexity } from "./ModelProviders/ProviderPerplexity";
 import { IProvider } from "./ModelProviders/IProvider";
 import Database from "@tauri-apps/plugin-sql";
@@ -155,6 +156,7 @@ export type ApiKeys = {
     openai?: string;
     perplexity?: string;
     openrouter?: string;
+    openpaths?: string;
     google?: string;
     grok?: string;
 };
@@ -239,6 +241,7 @@ export type ProviderName =
     | "google"
     | "perplexity"
     | "openrouter"
+    | "openpaths"
     | "ollama"
     | "lmstudio"
     | "grok"
@@ -288,6 +291,8 @@ function getProvider(providerName: string): IProvider {
             return new ProviderGoogle();
         case "openrouter":
             return new ProviderOpenRouter();
+        case "openpaths":
+            return new ProviderOpenPaths();
         case "perplexity":
             return new ProviderPerplexity();
         case "ollama":
@@ -356,6 +361,7 @@ export async function DEPRECATED_USE_HOOK_INSTEAD_downloadModels(
     db: Database,
 ): Promise<number> {
     await downloadOpenRouterModels(db);
+    await downloadOpenPathsModels(db);
     await downloadOllamaModels(db);
     await downloadLMStudioModels(db);
     return 0;
@@ -430,6 +436,80 @@ export async function downloadOpenRouterModels(db: Database): Promise<number> {
     );
 
     return openRouterModels.length;
+}
+
+/**
+ * Downloads models from OpenPaths to refresh the database.
+ * OpenPaths is an OpenAI-compatible gateway (https://openpaths.io).
+ */
+export async function downloadOpenPathsModels(db: Database): Promise<number> {
+    const response = await fetch("https://openpaths.io/v1/models");
+    if (!response.ok) {
+        console.error("Failed to fetch OpenPaths models");
+        return 0;
+    }
+    const { data: openPathsModels } = (await response.json()) as {
+        data: {
+            id: string;
+            name?: string;
+            architecture?: {
+                input_modalities?: string[];
+            };
+            pricing?: {
+                prompt: string;
+                completion: string;
+                request?: string;
+                image?: string;
+            };
+        }[];
+    };
+
+    await db.execute(
+        "UPDATE models SET is_enabled = 0 WHERE id LIKE 'openpaths::%'",
+    );
+
+    await Promise.all(
+        openPathsModels.map((model) => {
+            // Check if the model supports images based on API metadata
+            // Use Array.isArray check to ensure input_modalities is an array before calling includes
+            const supportsImages =
+                Array.isArray(model.architecture?.input_modalities) &&
+                model.architecture.input_modalities.includes("image");
+
+            // Parse and validate pricing data
+            const promptPrice = parseFloat(model.pricing?.prompt ?? "");
+            const completionPrice = parseFloat(model.pricing?.completion ?? "");
+            const hasPricing =
+                !isNaN(promptPrice) &&
+                !isNaN(completionPrice) &&
+                isFinite(promptPrice) &&
+                isFinite(completionPrice);
+
+            const displayName = model.name ?? model.id;
+
+            return saveModelAndDefaultConfig(
+                db,
+                {
+                    id: `openpaths::${model.id}`,
+                    displayName: `${displayName}`,
+                    supportedAttachmentTypes: supportsImages
+                        ? ["text", "image", "webpage"]
+                        : ["text", "webpage"],
+                    isEnabled: true,
+                    isInternal: false,
+                },
+                `${displayName}`,
+                hasPricing
+                    ? {
+                          promptPricePerToken: promptPrice,
+                          completionPricePerToken: completionPrice,
+                      }
+                    : undefined,
+            );
+        }),
+    );
+
+    return openPathsModels.length;
 }
 
 /**
@@ -609,6 +689,7 @@ const CONTEXT_LIMIT_PATTERNS: Record<ProviderName, string> = {
     google: "token count",
     grok: "maximum prompt length",
     openrouter: "context length",
+    openpaths: "context length",
     meta: "context window", // best guess
     lmstudio: "context window", // best guess
     perplexity: "context window", // best guess

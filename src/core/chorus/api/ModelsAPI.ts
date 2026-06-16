@@ -75,6 +75,10 @@ type ModelConfigDBRow = {
 // the current session, and store the promise if a download is in progress.
 let openRouterDownloadPromise: Promise<number> | null = null;
 
+// Track whether we've attempted to refresh OpenPaths models within
+// the current session, and store the promise if a download is in progress.
+let openPathsDownloadPromise: Promise<number> | null = null;
+
 function readModel(row: ModelDBRow): Models.Model {
     return {
         id: row.id,
@@ -120,6 +124,20 @@ export async function fetchModelConfigs() {
         } else {
             openRouterDownloadPromise = Models.downloadOpenRouterModels(db);
             await openRouterDownloadPromise;
+            // Keep the promise stored so subsequent calls know it completed
+            // (we don't clear it to prevent re-downloads within the session)
+        }
+    }
+
+    // Fetch OpenPaths models if we haven't already and the user has an OpenPaths API key.
+    if (apiKeys.openpaths) {
+        // If a download is already in progress, wait for it to complete.
+        // Otherwise, start a new download and store the promise.
+        if (openPathsDownloadPromise) {
+            await openPathsDownloadPromise;
+        } else {
+            openPathsDownloadPromise = Models.downloadOpenPathsModels(db);
+            await openPathsDownloadPromise;
             // Keep the promise stored so subsequent calls know it completed
             // (we don't clear it to prevent re-downloads within the session)
         }
@@ -325,6 +343,21 @@ export function useRefreshOpenRouterModels() {
     });
 }
 
+export function useRefreshOpenPathsModels() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: ["refreshOpenPathsModels"] as const,
+        mutationFn: async () => {
+            await Models.downloadOpenPathsModels(db);
+        },
+        onSuccess: async () => {
+            await queryClient.invalidateQueries(
+                modelConfigQueries.listConfigs(),
+            );
+        },
+    });
+}
+
 export function useRefreshOllamaModels() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -357,6 +390,7 @@ export function useRefreshLMStudioModels() {
 
 export function useRefreshModels() {
     const refreshOpenRouterModels = useRefreshOpenRouterModels();
+    const refreshOpenPathsModels = useRefreshOpenPathsModels();
     const refreshOllamaModels = useRefreshOllamaModels();
     const refreshLMStudioModels = useRefreshLMStudioModels();
     return useMutation({
@@ -364,6 +398,7 @@ export function useRefreshModels() {
         mutationFn: async () => {
             await Promise.all([
                 refreshOpenRouterModels.mutateAsync(),
+                refreshOpenPathsModels.mutateAsync(),
                 refreshOllamaModels.mutateAsync(),
                 refreshLMStudioModels.mutateAsync(),
             ]);

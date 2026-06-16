@@ -51,6 +51,12 @@ export default function ApiKeysForm({
             url: "https://openrouter.ai/keys",
         },
         {
+            id: "openpaths",
+            name: "OpenPaths",
+            placeholder: "op-...",
+            url: "https://openpaths.io/account",
+        },
+        {
             id: "grok",
             name: "xAI",
             placeholder: "xai-...",
