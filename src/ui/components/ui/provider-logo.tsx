@@ -77,6 +77,9 @@ export function ProviderLogo({
                         className="w-4 h-4 invert dark:invert-0"
                     />
                 );
+            case "openpaths":
+                // TODO: Add OpenPaths logo
+                return <BoxIcon className="w-4 h-4" />;
             default: {
                 // @ts-expect-error: creating unused variable to provide exhaustiveness check
                 const _unused: never = provider;

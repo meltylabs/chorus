@@ -14,6 +14,7 @@ const PROVIDER_TO_API_KEY: Record<string, keyof ApiKeys> = {
     google: "google",
     perplexity: "perplexity",
     openrouter: "openrouter",
+    openpaths: "openpaths",
     grok: "grok",
 };
 
@@ -26,6 +27,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
     google: "Google AI",
     perplexity: "Perplexity",
     openrouter: "OpenRouter",
+    openpaths: "OpenPaths",
     grok: "xAI",
 };
 
