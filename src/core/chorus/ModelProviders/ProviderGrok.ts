@@ -40,7 +40,10 @@ export class ProviderGrok implements IProvider {
             modelName !== "grok-3-beta" &&
             modelName !== "grok-3-mini-beta" &&
             modelName !== "grok-3-mini-fast-beta" &&
-            modelName !== "grok-3-fast-beta"
+            modelName !== "grok-3-fast-beta" &&
+            modelName !== "grok-4.3" &&
+            modelName !== "grok-4.5" &&
+            modelName !== "grok-4.6"
         ) {
             throw new Error(`Unsupported model: ${modelName}`);
         }

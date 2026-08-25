@@ -655,3 +655,29 @@ Competitor Analysis (Work): When evaluating competitor products, request a table
 - For product and travel research, prefer linking directly to official or primary websites (e.g., official brand sites, manufacturer pages, or reputable e-commerce platforms like Amazon for user reviews) rather than aggregator sites or SEO-heavy blogs.
 - For academic or scientific queries, prefer linking directly to the original paper or official journal publication rather than survey papers or secondary summaries.
 `;
+
+export const getDifferenceSummaryPrompt = (
+    responses: { displayName: string; text: string }[],
+): string => {
+    const bodies = responses
+        .map(
+            (response) =>
+                `### ${response.displayName}\n${response.text.slice(0, 2500)}`,
+        )
+        .join("\n\n");
+
+    return `You are comparing replies from different AI models to the same user message.
+
+Write a baby summary of how the replies DIFFER. This is not a synthesis of the answer and not a recap of what they all said.
+
+Rules:
+- 2 to 4 short bullets
+- Name the models in each bullet
+- Only mention real differences: tone, structure, facts, recommendations, or what one includes that another skips
+- If they mostly agree, say that in one bullet, then note the small differences
+- No title, no preamble, no closing sentence
+- Plain language, one line per bullet
+
+${bodies}
+`;
+};

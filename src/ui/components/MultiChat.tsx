@@ -117,7 +117,12 @@ import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as AttachmentsAPI from "@core/chorus/api/AttachmentsAPI";
 import * as DraftAPI from "@core/chorus/api/DraftAPI";
 import SimpleCopyButton from "./unused/CopyButton";
+import {
+    DifferenceSummary,
+    responsesFromAiMessages,
+} from "./DifferenceSummary";
 import { MessageCostDisplay } from "./MessageCostDisplay";
+import { getModelAccentHsl } from "@ui/lib/modelAccent";
 import * as AppMetadataAPI from "@core/chorus/api/AppMetadataAPI";
 import {
     isPermissionGranted,
@@ -602,23 +607,79 @@ type MessagePartWithResults = MessagePart & {
     toolCallsAndResults: ToolCallWithResult[];
 };
 
+function ResponseLane({
+    label,
+    accentHsl,
+    children,
+}: {
+    label: string;
+    accentHsl?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="mb-4 last:mb-0">
+            <div className="flex items-center gap-2 mb-1.5">
+                {accentHsl && (
+                    <span
+                        className="size-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: accentHsl }}
+                    />
+                )}
+                <span className="font-geist-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {label}
+                </span>
+            </div>
+            {children}
+        </div>
+    );
+}
+
 function MessagePartView({
     part,
     messageState,
+    accentHsl,
 }: {
     part: MessagePartWithResults;
     messageState: Message["state"];
+    accentHsl?: string;
 }) {
+    const hasContent = part.content.trim().length > 0;
+    const hasTools = part.toolCallsAndResults.length > 0;
+    const showLanes = hasContent && hasTools;
+
     return (
         <>
-            <MessageMarkdown text={part.content} />
-            {part.toolCallsAndResults.map((toolCallWithResult) => (
-                <ToolCallView
-                    key={toolCallWithResult.id}
-                    toolCallWithResult={toolCallWithResult}
-                    messageState={messageState}
-                />
-            ))}
+            {hasContent &&
+                (showLanes ? (
+                    <ResponseLane label="Answer" accentHsl={accentHsl}>
+                        <MessageMarkdown
+                            text={part.content}
+                            accentHsl={accentHsl}
+                        />
+                    </ResponseLane>
+                ) : (
+                    <MessageMarkdown text={part.content} accentHsl={accentHsl} />
+                ))}
+            {hasTools &&
+                (showLanes ? (
+                    <ResponseLane label="Tools" accentHsl={accentHsl}>
+                        {part.toolCallsAndResults.map((toolCallWithResult) => (
+                            <ToolCallView
+                                key={toolCallWithResult.id}
+                                toolCallWithResult={toolCallWithResult}
+                                messageState={messageState}
+                            />
+                        ))}
+                    </ResponseLane>
+                ) : (
+                    part.toolCallsAndResults.map((toolCallWithResult) => (
+                        <ToolCallView
+                            key={toolCallWithResult.id}
+                            toolCallWithResult={toolCallWithResult}
+                            messageState={messageState}
+                        />
+                    ))
+                ))}
         </>
     );
 }
@@ -994,9 +1055,11 @@ function DeepResearchNotificationButton({ message }: { message: Message }) {
 function ToolsAIMessageViewInner({
     message,
     isQuickChatWindow,
+    accentHsl,
 }: {
     message: Message;
     isQuickChatWindow: boolean;
+    accentHsl?: string;
 }) {
     // combine tool calls with tool results
     const messagePartsSandwiched: MessagePartWithResults[] = message.parts
@@ -1054,6 +1117,7 @@ function ToolsAIMessageViewInner({
                             key={part.level}
                             part={part}
                             messageState={message.state}
+                            accentHsl={accentHsl}
                         />
                     ))}
                     {message.state === "streaming" && (
@@ -1181,6 +1245,7 @@ export function ToolsMessageView({
     const modelConfig = modelConfigsQuery.data?.find(
         (m) => m.id === message.model,
     );
+    const accentHsl = getModelAccentHsl(modelConfig?.modelId ?? message.model);
 
     const messageClasses = [
         "relative",
@@ -1231,6 +1296,12 @@ export function ToolsMessageView({
                             }
                         }}
                     >
+                        {!isQuickChatWindow && (
+                            <div
+                                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[5px]"
+                                style={{ backgroundColor: accentHsl }}
+                            />
+                        )}
                         {/* message header (model name + buttons) */}
                         <div
                             className={`absolute left-0 right-0 -top-3 h-6
@@ -1252,6 +1323,12 @@ export function ToolsMessageView({
                                 >
                                     {modelConfig && (
                                         <div className="flex items-center gap-2 h-6">
+                                            <span
+                                                className="size-1.5 rounded-full shrink-0"
+                                                style={{
+                                                    backgroundColor: accentHsl,
+                                                }}
+                                            />
                                             <ProviderLogo
                                                 size="sm"
                                                 modelId={modelConfig.modelId}
@@ -1435,6 +1512,7 @@ export function ToolsMessageView({
                         <ToolsAIMessageViewInner
                             message={message}
                             isQuickChatWindow={isQuickChatWindow}
+                            accentHsl={accentHsl}
                         />
 
                         {/* Reply button at bottom overlapping border (only show if there are no replies) */}
@@ -1491,6 +1569,15 @@ function ToolsBlockView({
     const addMessageToToolsBlock = MessageAPI.useAddMessageToToolsBlock(
         chatId!,
     );
+    const modelConfigs = ModelsAPI.useModelConfigs();
+    const differenceResponses = useMemo(
+        () =>
+            responsesFromAiMessages(
+                toolsBlock.chatMessages,
+                modelConfigs.data,
+            ),
+        [toolsBlock.chatMessages, modelConfigs.data],
+    );
     const handleAddModel = (modelId: string) => {
         // First add the model to the selected models list
         addModelToCompareConfigs.mutate({
@@ -1504,6 +1591,21 @@ function ToolsBlockView({
     };
 
     return (
+        <div className="flex flex-col w-full">
+            {!isQuickChatWindow && (
+                <div className={`${!isQuickChatWindow ? "px-10" : ""} pr-5`}>
+                    <DifferenceSummary
+                        messageSetId={messageSetId}
+                        responses={differenceResponses}
+                        enabled={
+                            differenceResponses.length >= 2 &&
+                            toolsBlock.chatMessages.every(
+                                (message) => message.state !== "streaming",
+                            )
+                        }
+                    />
+                </div>
+            )}
         <div
             ref={elementRef}
             className={`flex w-full h-fit pb-2 pr-5 gap-2 ${
@@ -1562,6 +1664,7 @@ function ToolsBlockView({
                     />
                 </div>
             )}
+        </div>
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
@@ -35,6 +35,11 @@ import {
     DialogTitle,
 } from "./ui/dialog";
 import { MessageMarkdown } from "./renderers/MessageMarkdown";
+import { getModelAccentHsl } from "@ui/lib/modelAccent";
+import {
+    DifferenceSummary,
+    responsesFromAiMessages,
+} from "./DifferenceSummary";
 import { Toggle } from "./ui/toggle";
 import { Separator } from "./ui/separator";
 import {
@@ -333,6 +338,9 @@ function AIMessageView({
         .join(" ");
 
     const modelConfigQuery = ModelsAPI.useModelConfig(message.model);
+    const accentHsl = getModelAccentHsl(
+        modelConfigQuery.data?.modelId ?? message.model,
+    );
 
     const stopMessage = MessageAPI.useStopMessage();
     const selectMessage = MessageAPI.useSelectMessage();
@@ -372,6 +380,12 @@ function AIMessageView({
                     overflowWrap: "anywhere", // tailwind doesn't support this yet
                 }}
             >
+                {!isQuickChatWindow && (
+                    <div
+                        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[5px]"
+                        style={{ backgroundColor: accentHsl }}
+                    />
+                )}
                 {/* AI message header (model name + buttons) */}
                 <div
                     className={`absolute -top-3 left-0 right-0
@@ -399,11 +413,19 @@ function AIMessageView({
                     ) : (
                         // compare mode: model name, always visible
                         <div className={`ml-2 px-2.5 bg-background`}>
-                            <span className="print-model-name text-sm font-[400] text-gray-800 rounded-full py-1 inline-flex items-center gap-1">
+                            <span className="print-model-name text-sm font-[400] text-gray-800 rounded-full py-1 inline-flex items-center gap-1.5">
                                 {isSynthesis ? (
                                     <MergeIcon className="w-3 h-3 inline-block mb-0.5 mr-1" />
                                 ) : (
-                                    modelName
+                                    <>
+                                        <span
+                                            className="size-1.5 rounded-full shrink-0"
+                                            style={{
+                                                backgroundColor: accentHsl,
+                                            }}
+                                        />
+                                        {modelName}
+                                    </>
                                 )}
                             </span>
                             {shortcutNumber !== undefined && isLastRow && (
@@ -506,7 +528,10 @@ function AIMessageView({
                     ${isQuickChatWindow ? "py-2.5 border !border-border-accent max-w-full inline-block break-words px-3.5 rounded-xl" : "p-4 pb-6"}`}
                     >
                         {message.text ? (
-                            <MessageMarkdown text={message.text} />
+                            <MessageMarkdown
+                                text={message.text}
+                                accentHsl={accentHsl}
+                            />
                         ) : isSynthesis ? (
                             <SynthesisAnimation />
                         ) : message.state === "streaming" ? (
@@ -680,6 +705,7 @@ function CompareBlockView({
         chatId!,
     );
     const addModelToCompareConfigs = MessageAPI.useAddModelToCompareConfigs();
+    const modelConfigs = ModelsAPI.useModelConfigs();
 
     const aiMessages = compareBlock.messages;
     const synthesisMessage = compareBlock.synthesis;
@@ -690,6 +716,11 @@ function CompareBlockView({
             : []),
         ...aiMessages,
     ];
+
+    const differenceResponses = useMemo(
+        () => responsesFromAiMessages(aiMessages, modelConfigs.data),
+        [aiMessages, modelConfigs.data],
+    );
 
     const selectSynthesis = MessageAPI.useSelectSynthesis();
     const deselectSynthesis = MessageAPI.useDeselectSynthesis();
@@ -731,6 +762,23 @@ function CompareBlockView({
     }
 
     return (
+        <div className="flex flex-col w-full">
+            {!isQuickChatWindow && (
+                <div className="pl-10 pr-5">
+                    <DifferenceSummary
+                        messageSetId={messageSetId}
+                        responses={differenceResponses}
+                        enabled={
+                            differenceResponses.length >= 2 &&
+                            aiMessages.every(
+                                (message) =>
+                                    message.model === "chorus::synthesize" ||
+                                    message.state !== "streaming",
+                            )
+                        }
+                    />
+                </div>
+            )}
         <div
             className={`flex w-full h-fit pb-2 ${
                 // get horizontal scroll bars, plus hackily disable y scrolling
@@ -809,6 +857,7 @@ function CompareBlockView({
                     />
                 </>
             )}
+        </div>
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { ReactNode } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -217,7 +217,23 @@ function safeEncodeMarkdown(text: string): string {
     return encodedText;
 }
 
-export const MessageMarkdown = ({ text }: { text: string }) => {
+function headingStyle(accentHsl: string | undefined): React.CSSProperties | undefined {
+    if (!accentHsl) {
+        return undefined;
+    }
+    return {
+        boxShadow: `inset 2px 0 0 ${accentHsl}`,
+        paddingLeft: "0.65rem",
+    };
+}
+
+export const MessageMarkdown = ({
+    text,
+    accentHsl,
+}: {
+    text: string;
+    accentHsl?: string;
+}) => {
     // encode any html that would otherwise be rendered
     const encodedText = safeEncodeMarkdown(text);
 
@@ -277,13 +293,37 @@ export const MessageMarkdown = ({ text }: { text: string }) => {
         processedText +
         (sourcesSection ? "\n\nSources:\n" + sources.join("\n") : "");
 
+    const markdownComponents = useMemo(
+        () => ({
+            ...components,
+            h1: ({ children }: { children?: ReactNode }) => (
+                <h1 style={headingStyle(accentHsl)}>{children}</h1>
+            ),
+            h2: ({ children }: { children?: ReactNode }) => (
+                <h2 style={headingStyle(accentHsl)}>{children}</h2>
+            ),
+            h3: ({ children }: { children?: ReactNode }) => (
+                <h3 style={headingStyle(accentHsl)}>{children}</h3>
+            ),
+            blockquote: ({ children }: { children?: ReactNode }) => (
+                <blockquote
+                    className="my-3 text-muted-foreground"
+                    style={headingStyle(accentHsl)}
+                >
+                    {children}
+                </blockquote>
+            ),
+        }),
+        [accentHsl],
+    );
+
     return (
         <Markdown
             rehypePlugins={rehypePlugins}
             remarkPlugins={remarkPlugins}
             className={`prose prose-invert select-text text-base`}
             urlTransform={(url) => url} // Allow all URLs to pass through
-            components={components}
+            components={markdownComponents}
         >
             {finalText}
         </Markdown>
