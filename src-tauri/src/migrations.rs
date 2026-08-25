@@ -2554,5 +2554,53 @@ You have full access to bash commands on the user''''s computer. If you write a 
                 UPDATE projects SET total_cost_usd = 0.0 WHERE total_cost_usd IS NULL;
             "#,
         },
+        Migration {
+            version: 139,
+            description: "add gpt-5.6, claude 5, and grok 4.x models",
+            kind: MigrationKind::Up,
+            sql: r#"
+                INSERT OR REPLACE INTO models (id, display_name, is_enabled, supported_attachment_types) VALUES
+                    ('openai::gpt-5.6-sol', 'GPT-5.6 Sol', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('openai::gpt-5.6-terra', 'GPT-5.6 Terra', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('openai::gpt-5.6-luna', 'GPT-5.6 Luna', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('anthropic::claude-opus-5', 'Claude Opus 5', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('anthropic::claude-sonnet-5', 'Claude Sonnet 5', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('anthropic::claude-fable-5', 'Claude Fable 5', 1, '["text", "image", "webpage", "pdf"]'),
+                    ('grok::grok-4.6', 'Grok 4.6', 1, '["text", "webpage", "image"]'),
+                    ('grok::grok-4.5', 'Grok 4.5', 1, '["text", "webpage", "image"]'),
+                    ('grok::grok-4.3', 'Grok 4.3', 1, '["text", "webpage", "image"]');
+
+                INSERT OR REPLACE INTO model_configs (author, id, model_id, display_name, system_prompt, is_default, new_until) VALUES
+                    ('system', 'openai::gpt-5.6-sol', 'openai::gpt-5.6-sol', 'GPT-5.6 Sol', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'openai::gpt-5.6-terra', 'openai::gpt-5.6-terra', 'GPT-5.6 Terra', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'openai::gpt-5.6-luna', 'openai::gpt-5.6-luna', 'GPT-5.6 Luna', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'anthropic::claude-opus-5', 'anthropic::claude-opus-5', 'Claude Opus 5', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'anthropic::claude-sonnet-5', 'anthropic::claude-sonnet-5', 'Claude Sonnet 5', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'anthropic::claude-fable-5', 'anthropic::claude-fable-5', 'Claude Fable 5', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'grok::grok-4.6', 'grok::grok-4.6', 'Grok 4.6', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'grok::grok-4.5', 'grok::grok-4.5', 'Grok 4.5', '', 0, '2026-09-24 00:00:00'),
+                    ('system', 'grok::grok-4.3', 'grok::grok-4.3', 'Grok 4.3', '', 0, '2026-09-24 00:00:00');
+
+                INSERT OR IGNORE INTO app_metadata (key, value) VALUES
+                    ('selected_model_configs_compare', '["anthropic::claude-opus-5"]');
+
+                UPDATE app_metadata
+                SET value = '["anthropic::claude-opus-5"]'
+                WHERE key = 'selected_model_configs_compare'
+                AND value = '["openrouter::anthropic/claude-opus-4.5"]';
+            "#,
+        },
+        Migration {
+            version: 140,
+            description: "store baby summaries of differences between model responses",
+            kind: MigrationKind::Up,
+            sql: r#"
+                CREATE TABLE message_set_difference_summaries (
+                    message_set_id TEXT PRIMARY KEY,
+                    summary TEXT NOT NULL,
+                    content_hash TEXT NOT NULL
+                );
+            "#,
+        },
     ];
 }

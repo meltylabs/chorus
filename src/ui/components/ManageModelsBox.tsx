@@ -47,6 +47,7 @@ import { hasApiKey } from "@core/utilities/ProxyUtils";
 import * as ModelsAPI from "@core/chorus/api/ModelsAPI";
 import * as MessageAPI from "@core/chorus/api/MessageAPI";
 import { useSettings } from "./hooks/useSettings";
+import { limitToFeaturedModels } from "@ui/lib/models";
 
 // Helper function to filter models by search terms
 const filterBySearch = (models: ModelConfig[], searchTerms: string[]) => {
@@ -507,14 +508,23 @@ export function ManageModelsBox({
             "grok",
         ] as const;
 
+        const isSearching = searchTerms.length > 0;
+
         const directByProvider = Object.fromEntries(
             directProviders.map((provider) => [
                 provider,
-                filterBySearch(
-                    systemModels.filter(
-                        (m) => getProviderName(m.modelId) === provider,
+                limitToFeaturedModels(
+                    filterBySearch(
+                        systemModels.filter(
+                            (m) => getProviderName(m.modelId) === provider,
+                        ),
+                        searchTerms,
                     ),
-                    searchTerms,
+                    provider,
+                    {
+                        searching: isSearching,
+                        alwaysIncludeIds: checkedModelConfigIds,
+                    },
                 ),
             ]),
         ) as Record<(typeof directProviders)[number], ModelConfig[]>;
@@ -525,7 +535,7 @@ export function ManageModelsBox({
             openrouter: filterBySearch(openrouterModels, searchTerms),
             directByProvider,
         };
-    }, [modelConfigs.data, searchQuery]);
+    }, [modelConfigs.data, searchQuery, checkedModelConfigIds]);
 
     useLayoutEffect(() => {
         if (!listRef.current) return;
